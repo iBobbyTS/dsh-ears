@@ -21,6 +21,10 @@ export class VoiceDraftWriter {
     this.start = selection.start
     this.end = selection.end
     this.revision = selection.draftRev
+    // Never destroy a user's highlighted original text on a speculative
+    // interim transcript. Inserting over a selection must be a separate,
+    // explicitly confirmed operation.
+    if (this.start !== this.end) this.invalidated = true
   }
 
   get text(): string { return this.current }
