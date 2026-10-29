@@ -34,6 +34,8 @@ const CURRENT_STORED_FIELD_MAPPINGS: readonly StoredFieldMapping[] = [
   { field: 'localWhisperModel', path: ['recognition', 'localWhisper', 'model'] },
   { field: 'localWhisperAcceleration', path: ['recognition', 'localWhisper', 'acceleration'] },
   { field: 'localWhisperLanguage', path: ['recognition', 'localWhisper', 'language'] },
+  { field: 'localQwenModel', path: ['recognition', 'localQwen', 'model'] },
+  { field: 'localQwenIdleTtlMinutes', path: ['recognition', 'localQwen', 'idleTtlMinutes'] },
   { field: 'cloudAsrProvider', path: ['recognition', 'cloudProvider'] },
   { field: 'maxRecordingSeconds', path: ['recognition', 'maxRecordingSeconds'] },
   ...CLOUD_ASR_PROVIDERS.flatMap((provider) => provider.fields.map((definition) => ({
@@ -69,6 +71,7 @@ export function normalizeStoredEarsSettings(raw: unknown): StoredEarsSettings {
   const recognition = asRecord(record.recognition)
   const webSpeech = asRecord(recognition?.webSpeech)
   const localWhisper = asRecord(recognition?.localWhisper)
+  const localQwen = asRecord(recognition?.localQwen)
   const cloudAsr = asRecord(record.cloudAsr)
   const polishing = asRecord(record.polishing)
 
@@ -191,6 +194,10 @@ export function normalizeStoredEarsSettings(raw: unknown): StoredEarsSettings {
           DEFAULT_RECOGNITION_SETTINGS.localWhisper.acceleration
         )),
         language: ownText(localWhisper, 'language') ?? DEFAULT_RECOGNITION_SETTINGS.localWhisper.language
+      },
+      localQwen: {
+        model: ownText(localQwen, 'model') ?? ownText(record, 'localQwenModel') ?? DEFAULT_RECOGNITION_SETTINGS.localQwen.model,
+        idleTtlMinutes: ownNumber(localQwen, 'idleTtlMinutes') ?? ownNumber(record, 'localQwenIdleTtlMinutes') ?? DEFAULT_RECOGNITION_SETTINGS.localQwen.idleTtlMinutes
       },
       cloudProvider: provider,
       webSpeech: {
@@ -341,6 +348,8 @@ export function flattenStoredSettings(raw: unknown): EarsSettings {
     localWhisperModel: stored.recognition.localWhisper.model,
     localWhisperAcceleration: stored.recognition.localWhisper.acceleration,
     localWhisperLanguage: stored.recognition.localWhisper.language,
+    localQwenModel: stored.recognition.localQwen.model,
+    localQwenIdleTtlMinutes: stored.recognition.localQwen.idleTtlMinutes,
     cloudAsrProvider: stored.recognition.cloudProvider,
     maxRecordingSeconds: stored.recognition.maxRecordingSeconds,
     voiceShortcutEnabled: stored.general.shortcut.enabled,
@@ -383,6 +392,7 @@ export function unflattenEarsSettings(settings: EarsSettings, acceleration = set
         acceleration: normalizeWhisperAcceleration(acceleration),
         language: settings.localWhisperLanguage
       },
+      localQwen: { model: settings.localQwenModel, idleTtlMinutes: settings.localQwenIdleTtlMinutes },
       cloudProvider: settings.cloudAsrProvider,
       maxRecordingSeconds: settings.maxRecordingSeconds
     },
