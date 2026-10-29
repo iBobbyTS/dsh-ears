@@ -7,6 +7,7 @@ import type { LlmModelInfo, ReasoningEffortId, StreamChunk } from '@deepseek-ai/
 import { ASR_BACKEND_IDS, DEFAULT_EARS_SETTINGS, VOLCENGINE_REALTIME_DEFAULT_MODEL, VOLCENGINE_RECORDING_DEFAULT_MODEL, WHISPER_ACCELERATION_IDS, WHISPER_MODEL_IDS, repairInvalidEarsSettings, validateEarsSettings, type AsrBackendId, type EarsSettings, type PolishRoute, type ReasoningEffortsView, type WhisperAccelerationId, type WhisperModelId } from '../config.js'
 import { disposeWhisperRuntime, isWhisperAvailable, transcribeWithWhisper, validateWhisperTranscription, whisperAccelerationCapabilities, withWhisperModelContextReleased, WhisperRestartRequiredError, type WhisperAccelerationCapabilities } from '../asr/local-whisper.js'
 import { WhisperModels } from '../asr/whisper-models.js'
+import { Qwen3Runtime, Qwen3RealtimeAsrSession, type Qwen3ModelState } from '../asr/qwen3-runtime.js'
 import type { WhisperModelState } from '../asr/whisper-models.js'
 import { transcribeOpenAICompatible } from '../asr/openai-compatible.js'
 import { fetchCloudProviderModels } from '../asr/cloud-provider-models.js'
@@ -58,6 +59,7 @@ export class PolishService extends TypertRemoteService {
   private whisperAvailability: { variant: WhisperAccelerationId; expiresAt: number; value: Promise<boolean> } | undefined
   private cloudModelsFailure: { key: string; expiresAt: number; message: string; errorCode: EarsErrorCode; errorParams?: EarsErrorParams } | undefined
   private readonly whisperModels = new WhisperModels()
+  private readonly qwen3 = new Qwen3Runtime()
   private readonly realtimeSessions = new Map<string, RealtimeSessionEntry>()
 
   constructor(ctx: Context) {
@@ -65,6 +67,7 @@ export class PolishService extends TypertRemoteService {
     this.whisperCapabilities = whisperAccelerationCapabilities()
     ctx.effect(() => async () => {
       this.whisperModels.dispose()
+      this.qwen3.dispose()
       for (const entry of this.realtimeSessions.values()) {
         clearTimeout(entry.timer)
         entry.session.close()
@@ -189,6 +192,7 @@ export class PolishService extends TypertRemoteService {
       localRestart = error
     }
     const cloudAvailable = await this.cloudAsrIsAvailable(settings)
+    const qwenSupported = process.platform === 'darwin' && process.arch === 'arm64'
     const localDetail = localRestart === undefined
       ? localAvailable ? 'The whisper.node native runtime is available' : 'The selected Local Whisper native runtime is unavailable'
       : whisperRestartMessage(localRestart)
@@ -207,6 +211,12 @@ export class PolishService extends TypertRemoteService {
         ...(localRestart === undefined
           ? localAvailable ? {} : { detailCode: EARS_ERROR_CODES.backendLocalUnavailable }
           : { detailCode: EARS_ERROR_CODES.whisperRestartRequired, detailParams: whisperRestartParams(localRestart) })
+      },
+      {
+        id: 'local-qwen3',
+        name: 'Local Qwen3-ASR (MLX)',
+        available: qwenSupported,
+        detail: qwenSupported ? 'Host-managed native MLX streaming recognition; download the model in settings' : 'Requires macOS Apple Silicon'
       },
       {
         id: 'cloud-openai',
@@ -258,6 +268,30 @@ export class PolishService extends TypertRemoteService {
         ...(errorParams === undefined ? {} : { errorParams })
       }
     }
+  }
+
+  async getQwenModelState(model: string): Promise<Qwen3ModelState> {
+    return this.qwen3.state(model, this.optionalSettings().localQwenIdleTtlMinutes)
+  }
+
+  async downloadQwenModel(model: string): Promise<Qwen3ModelState> {
+    return this.qwen3.download(model)
+  }
+
+  async cancelQwenModelDownload(model: string): Promise<Qwen3ModelState> {
+    return this.qwen3.cancelDownload(model)
+  }
+
+  async deleteQwenModel(model: string): Promise<Qwen3ModelState> {
+    return this.qwen3.deleteModel(model)
+  }
+
+  async startQwenService(model: string): Promise<Qwen3ModelState> {
+    return this.qwen3.load(model, this.optionalSettings().localQwenIdleTtlMinutes)
+  }
+
+  async unloadQwenService(model: string): Promise<Qwen3ModelState> {
+    return this.qwen3.unloadModel(model)
   }
 
   async getWhisperModelState(model: string): Promise<WhisperModelState> {
@@ -313,6 +347,7 @@ export class PolishService extends TypertRemoteService {
       const audio = decodeAudio(audioBase64)
       const backend = asrBackend(settings.asrBackend)
       if (backend === 'web-speech') throw new EarsError(EARS_ERROR_CODES.asrUnsupportedBackend, 'Web Speech recordings are transcribed in the browser')
+      if (backend === 'local-qwen3') throw new EarsError(EARS_ERROR_CODES.asrUnsupportedBackend, 'Local Qwen3-ASR is a realtime streaming backend')
       if (backend === 'local-whisper') {
         const model = whisperModel(settings.localWhisperModel)
         const acceleration = this.whisperAcceleration(settings.localWhisperAcceleration)
@@ -426,9 +461,12 @@ export class PolishService extends TypertRemoteService {
     try {
       signal.throwIfAborted()
       const settings = this.requireSettings()
-      if (settings.asrBackend !== 'cloud-openai') {
-        throw new EarsError(EARS_ERROR_CODES.asrServiceUnavailable, 'Cloud realtime recognition is not selected')
+      if (settings.asrBackend !== 'local-qwen3' && settings.asrBackend !== 'cloud-openai') {
+        throw new EarsError(EARS_ERROR_CODES.asrServiceUnavailable, 'Realtime recognition is not selected')
       }
+      if (settings.asrBackend === 'local-qwen3') {
+        session = new Qwen3RealtimeAsrSession(this.qwen3, settings.localQwenModel, settings.localQwenIdleTtlMinutes)
+      } else {
       if (!isCloudAsrRealtime(settings)) {
         throw new EarsError(EARS_ERROR_CODES.asrServiceUnavailable, 'The selected cloud ASR service does not support realtime recognition')
       }
@@ -478,6 +516,7 @@ export class PolishService extends TypertRemoteService {
         })
       } else {
         throw new EarsError(EARS_ERROR_CODES.asrServiceUnavailable, 'The selected cloud ASR provider does not support realtime recognition')
+      }
       }
       await session.open(signal)
       signal.throwIfAborted()
