@@ -122,7 +122,7 @@ export class Qwen3Runtime {
       if (this.job.model !== model) throw new Error('Another Qwen3-ASR model is downloading')
       return this.state(model)
     }
-    if (await present(join(qwenModelPath(model, this.root), '.dsh-ears-ready'))) return this.state(model)
+    if (await present(join(qwenModelPath(model, this.root), '.dsh-ears-ready')) && await present(this.python())) return this.state(model)
     this.downloadError = null
     const abort = new AbortController()
     const job: DownloadJob = { model, abort, promise: Promise.resolve() }
