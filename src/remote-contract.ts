@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { ASR_BACKEND_IDS, CLOUD_ASR_PROVIDER_IDS, DEEPGRAM_ASR_DEFAULT_SERVICE, DEEPGRAM_ASR_SERVICE_IDS, DEEPGRAM_DEFAULT_MODEL, MAX_CLOUD_API_KEY_LENGTH, MIMO_ASR_CLUSTERS, MIMO_ASR_DEFAULT_CLUSTER, MIMO_ASR_DEFAULT_SERVICE, MIMO_ASR_SERVICE_IDS, MIMO_DEFAULT_MODEL, SETTINGS_DISPLAY_NAME_IDS, SILICONFLOW_DEFAULT_MODEL, TENCENT_ASR_SERVICE_IDS, VOLCENGINE_ASR_DEFAULT_SERVICE, VOLCENGINE_ASR_SERVICE_IDS, VOLCENGINE_REALTIME_DEFAULT_MODEL, VOLCENGINE_REALTIME_MODEL_IDS, VOLCENGINE_RECORDING_DEFAULT_MODEL, VOLCENGINE_RECORDING_MODEL_IDS, WHISPER_ACCELERATION_IDS, WHISPER_MODEL_IDS } from './config.js'
+import { ASR_BACKEND_IDS, CLOUD_ASR_PROVIDER_IDS, DEEPGRAM_ASR_DEFAULT_SERVICE, DEEPGRAM_ASR_SERVICE_IDS, DEEPGRAM_DEFAULT_MODEL, MAX_CLOUD_API_KEY_LENGTH, MIMO_ASR_CLUSTERS, MIMO_ASR_DEFAULT_CLUSTER, MIMO_ASR_DEFAULT_SERVICE, MIMO_ASR_SERVICE_IDS, MIMO_DEFAULT_MODEL, SETTINGS_DISPLAY_NAME_IDS, SILICONFLOW_DEFAULT_MODEL, TENCENT_ASR_SERVICE_IDS, VOLCENGINE_ASR_DEFAULT_SERVICE, VOLCENGINE_ASR_SERVICE_IDS, VOLCENGINE_REALTIME_DEFAULT_MODEL, VOLCENGINE_REALTIME_MODEL_IDS, VOLCENGINE_RECORDING_DEFAULT_MODEL, VOLCENGINE_RECORDING_MODEL_IDS, WHISPER_ACCELERATION_IDS, WHISPER_MODEL_IDS, QWEN3_MODELS, DEFAULT_QWEN3_MODEL, QWEN3_DEFAULT_TTL_MINUTES } from './config.js'
 import type { AsrBackendId, EarsSettings, PolishRoute, WhisperAccelerationId } from './config.js'
 import type { EarsErrorCode, EarsErrorParams } from './errors.js'
 import type { AsrBackendInfo } from './asr/types.js'
@@ -16,6 +16,8 @@ export const earsSettingsSchema = z.object({
   localWhisperModel: z.string(),
   localWhisperAcceleration: z.string(),
   localWhisperLanguage: z.string(),
+  localQwenModel: z.string().default(DEFAULT_QWEN3_MODEL),
+  localQwenIdleTtlMinutes: z.number().default(QWEN3_DEFAULT_TTL_MINUTES),
   cloudAsrProvider: z.string(),
   cloudAsrGroqApiKey: z.string(),
   cloudAsrGroqModel: z.string(),
@@ -68,6 +70,8 @@ export const earsSettingsPatchSchema = z.object({
   localWhisperModel: whisperModelSchema.optional(),
   localWhisperAcceleration: z.enum(WHISPER_ACCELERATION_IDS).optional(),
   localWhisperLanguage: z.string().optional(),
+  localQwenModel: z.enum(QWEN3_MODELS).optional(),
+  localQwenIdleTtlMinutes: z.number().int().min(1).max(1440).optional(),
   cloudAsrProvider: cloudAsrProviderSchema.optional(),
   cloudAsrGroqApiKey: cloudCredentialSchema.optional(),
   cloudAsrGroqModel: z.string().optional(),
@@ -156,6 +160,20 @@ export const reasoningEffortsViewSchema = z.object({
   defaultEffort: z.string().optional()
 })
 const errorParamsSchema = z.record(z.string(), z.union([z.string(), z.number()]))
+
+export const qwenModelStateSchema = z.object({
+  supported: z.boolean(),
+  runtimeInstalled: z.boolean(),
+  downloaded: z.boolean(),
+  downloading: z.boolean(),
+  phase: z.enum(['idle', 'runtime', 'weights']),
+  progress: z.number().nullable(),
+  loaded: z.boolean(),
+  activeSessions: z.number(),
+  expiresAt: z.number().nullable(),
+  ttlMinutes: z.number(),
+  error: z.string().nullable()
+})
 
 export const whisperModelStateSchema = z.object({
   runtimeAvailable: z.boolean(),
@@ -266,6 +284,7 @@ export type { AsrBackendInfo }
 export type { AsrBackendId, ReasoningEffortInfo, ReasoningEffortsView } from './config.js'
 export type { WhisperAccelerationId } from './config.js'
 export type { WhisperModelState } from './asr/whisper-models.js'
+export type { Qwen3ModelState } from './asr/qwen3-runtime.js'
 export type CloudProviderModelsView = z.infer<typeof cloudProviderModelsViewSchema>
 export type AboutInfo = z.infer<typeof aboutInfoSchema>
 export type UpdateCheckResult = z.infer<typeof updateCheckResultSchema>
