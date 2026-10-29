@@ -2,26 +2,20 @@
  * Host-owned, fully local Qwen3-ASR runtime and model lifecycle.
  * No listener ports: the Python worker uses private NDJSON stdio.
  */
-import { spawn, spawnSync, type ChildProcessWithoutNullStreams } from 'node:child_process'
-import { access, mkdir, readdir, rm } from 'node:fs/promises'
+import { spawn, spawnSync, type ChildProcess, type ChildProcessWithoutNullStreams } from 'node:child_process'
+import { access, mkdir, rm } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { randomUUID } from 'node:crypto'
+import { QWEN3_MODELS, DEFAULT_QWEN3_MODEL, QWEN3_DEFAULT_TTL_MINUTES, validQwen3TTL, type Qwen3ModelId } from '../settings/recognition.js'
 
-export const QWEN3_MODELS = ['1.7b-8bit', '0.6b-8bit'] as const
-export type Qwen3ModelId = typeof QWEN3_MODELS[number]
-export const DEFAULT_QWEN3_MODEL: Qwen3ModelId = '1.7b-8bit'
-export const QWEN3_DEFAULT_TTL_MINUTES = 60
+export { QWEN3_MODELS, DEFAULT_QWEN3_MODEL, QWEN3_DEFAULT_TTL_MINUTES, validQwen3TTL } from '../settings/recognition.js'
 export const QWEN3_RUNTIME_VERSION = '0.4.4'
 
 export function validQwen3Model(id: string): id is Qwen3ModelId {
   return (QWEN3_MODELS as readonly string[]).includes(id)
-}
-
-export function validQwen3TTL(minutes: number): boolean {
-  return Number.isSafeInteger(minutes) && minutes >= 1 && minutes <= 1440
 }
 
 export function qwenCacheRoot(platform: NodeJS.Platform = process.platform, home = homedir()): string {
@@ -87,7 +81,7 @@ export class Qwen3Runtime {
   private expiresAt: number | null = null
   private ttlMinutes = QWEN3_DEFAULT_TTL_MINUTES
   private job: DownloadJob | undefined
-  private downloadChild: ChildProcessWithoutNullStreams | undefined
+  private downloadChild: ChildProcess | undefined
   private downloadPhase: Qwen3ModelState['phase'] = 'idle'
   private downloadError: string | null = null
   private disposed = false
