@@ -54,6 +54,7 @@ if (manifest.engines?.node !== '^22.19.0 || >=24.0.0') {
   fail('engines.node must match the supported Node range')
 }
 
+requireFile('python/qwen3_worker.py', 'python/qwen3_worker.py')
 requireFile('main', manifest.main)
 requireFile('types', manifest.types)
 requireExport('.', 'default')
@@ -181,7 +182,7 @@ if (descriptors === undefined) {
     codecs.push({ subject: `${descriptor.id} result`, codec: descriptor.result })
     if (!clientBundle.includes(descriptor.id)) fail(`lib/client.js must inline the ${descriptor.id} descriptor`)
   }
-  if (codecs.length !== 36) fail(`the built descriptor table must carry 36 codecs, found ${codecs.length}`)
+  if (codecs.length !== 48) fail(`the built descriptor table must carry 48 codecs, found ${codecs.length}`)
   for (const { subject, codec } of codecs) {
     if (codec?.mode !== 'strict') fail(`${subject} must use a strict codec`)
     if (typeof codec?.create !== 'function') fail(`${subject} must provide a create() factory`)
