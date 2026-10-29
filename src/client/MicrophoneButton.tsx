@@ -358,7 +358,7 @@ export function MicrophoneButton({ useInput, inputActions, remote, useEarsSettin
           if (writer === null) { setState('idle'); return }
           if (!writer.finalize(transcript)) {
             // The user edited/sent/switched drafts. Never clobber that edit.
-            setState('idle')
+            applyVoiceFailure(voiceSession, 'asr', new Error(t('qwenDraftChanged')))
             return
           }
           setState('idle')
