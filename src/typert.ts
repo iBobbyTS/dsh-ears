@@ -64,6 +64,13 @@ export const TYPERT = {
             summary: 'List selectable reasoning efforts for one dsh route.',
             jsDoc: '/** List selectable reasoning efforts for one dsh route. */'
           },
+          ...(['getQwenModelState', 'downloadQwenModel', 'cancelQwenModelDownload', 'deleteQwenModel', 'startQwenService', 'unloadQwenService'] as const).map((name) => ({
+            kind: 'method' as const,
+            name,
+            signature: name + '(model: string): Promise<Qwen3ModelState>',
+            summary: 'Manage the Host-owned local Qwen3-ASR MLX model and runtime.',
+            jsDoc: '/** Manage local Qwen3-ASR state. */'
+          })),
           {
             kind: 'method',
             name: 'getWhisperModelState',
