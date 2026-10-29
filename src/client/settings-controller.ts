@@ -34,6 +34,8 @@ export interface EarsCardState {
   localWhisperModel: FieldState
   localWhisperAcceleration: FieldState
   localWhisperLanguage: FieldState
+  localQwenModel: FieldState
+  localQwenIdleTtlMinutes: FieldState
   localWhisperAccelerations: readonly WhisperAccelerationId[]
   cloudAsrProvider: FieldState
   cloudAsrGroqApiKey: FieldState
@@ -611,6 +613,8 @@ export class EarsSettingsController {
     const localWhisperModel = field('localWhisperModel', this.drafts.get('localWhisperModel') ?? current.localWhisperModel)
     const localWhisperAcceleration = field('localWhisperAcceleration', this.drafts.get('localWhisperAcceleration') ?? current.localWhisperAcceleration ?? DEFAULT_EARS_SETTINGS.localWhisperAcceleration)
     const localWhisperLanguage = field('localWhisperLanguage', this.drafts.get('localWhisperLanguage') ?? current.localWhisperLanguage)
+    const localQwenModel = field('localQwenModel', this.drafts.get('localQwenModel') ?? current.localQwenModel)
+    const localQwenIdleTtlMinutes = field('localQwenIdleTtlMinutes', this.drafts.get('localQwenIdleTtlMinutes') ?? String(current.localQwenIdleTtlMinutes))
     const cloudAsrProvider = field('cloudAsrProvider', this.drafts.get('cloudAsrProvider') ?? current.cloudAsrProvider)
     const cloudAsrGroqApiKey = field('cloudAsrGroqApiKey', this.drafts.get('cloudAsrGroqApiKey') ?? '')
     const cloudAsrDeepgramApiKey = field('cloudAsrDeepgramApiKey', this.drafts.get('cloudAsrDeepgramApiKey') ?? '')
@@ -657,7 +661,7 @@ export class EarsSettingsController {
     const defaultReasoningEffort = current.polishReasoningEffort.trim() !== '' ? current.polishReasoningEffort : defaultPolishRoute?.reasoningEffort ?? ''
     const polishReasoningEffort = field('polishReasoningEffort', this.drafts.get('polishReasoningEffort') ?? defaultReasoningEffort)
     const polishPrompt = field('polishPrompt', this.drafts.get('polishPrompt') ?? current.polishPrompt)
-    const stagedFields = [asrBackend, webSpeechLanguage, localWhisperModel, localWhisperAcceleration, localWhisperLanguage, cloudAsrProvider, cloudAsrGroqApiKey, cloudAsrDeepgramApiKey, cloudAsrCustomApiKey, cloudAsrBailianApiKey, cloudAsrTencentSecretKey, cloudAsrMimoApiKey, cloudAsrSiliconFlowApiKey, cloudAsrVolcengineApiKey, cloudAsrMimoService, cloudAsrMimoCluster, cloudAsrMimoModel, cloudAsrMimoLanguage, cloudAsrCustomEndpoint, cloudAsrCustomModel, cloudAsrCustomLanguage, cloudAsrBailianHost, cloudAsrGroqModel, cloudAsrGroqLanguage, cloudAsrDeepgramModel, cloudAsrDeepgramLanguage, cloudAsrDeepgramService, cloudAsrBailianModel, cloudAsrBailianLanguage, cloudAsrTencentAppId, cloudAsrTencentSecretId, cloudAsrTencentEngineType, cloudAsrTencentService, cloudAsrSiliconFlowModel, cloudAsrSiliconFlowLanguage, cloudAsrVolcengineService, cloudAsrVolcengineRealtimeModel, cloudAsrVolcengineRecordingModel, cloudAsrVolcengineLanguage, maxRecordingSeconds, voiceShortcutEnabled, voiceShortcut, voiceSoundsEnabled, settingsDisplayName, polishingEnabled, polishProvider, polishModel, polishReasoningEffort, polishPrompt]
+    const stagedFields = [asrBackend, webSpeechLanguage, localWhisperModel, localWhisperAcceleration, localWhisperLanguage, localQwenModel, localQwenIdleTtlMinutes, cloudAsrProvider, cloudAsrGroqApiKey, cloudAsrDeepgramApiKey, cloudAsrCustomApiKey, cloudAsrBailianApiKey, cloudAsrTencentSecretKey, cloudAsrMimoApiKey, cloudAsrSiliconFlowApiKey, cloudAsrVolcengineApiKey, cloudAsrMimoService, cloudAsrMimoCluster, cloudAsrMimoModel, cloudAsrMimoLanguage, cloudAsrCustomEndpoint, cloudAsrCustomModel, cloudAsrCustomLanguage, cloudAsrBailianHost, cloudAsrGroqModel, cloudAsrGroqLanguage, cloudAsrDeepgramModel, cloudAsrDeepgramLanguage, cloudAsrDeepgramService, cloudAsrBailianModel, cloudAsrBailianLanguage, cloudAsrTencentAppId, cloudAsrTencentSecretId, cloudAsrTencentEngineType, cloudAsrTencentService, cloudAsrSiliconFlowModel, cloudAsrSiliconFlowLanguage, cloudAsrVolcengineService, cloudAsrVolcengineRealtimeModel, cloudAsrVolcengineRecordingModel, cloudAsrVolcengineLanguage, maxRecordingSeconds, voiceShortcutEnabled, voiceShortcut, voiceSoundsEnabled, settingsDisplayName, polishingEnabled, polishProvider, polishModel, polishReasoningEffort, polishPrompt]
     return {
       available: this.settingsView.available,
       writable: this.settingsView.writable,
@@ -673,6 +677,8 @@ export class EarsSettingsController {
       localWhisperModel,
       localWhisperAcceleration,
       localWhisperLanguage,
+      localQwenModel,
+      localQwenIdleTtlMinutes,
       localWhisperAccelerations: this.settingsView.localWhisperAccelerations ?? ['default'],
       cloudAsrProvider,
       cloudAsrGroqApiKey,
