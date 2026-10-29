@@ -1,5 +1,5 @@
 import type { TypertCodec, TypertSchema } from '@deepseek-ai/dsh-typert-protocol'
-import { aboutInfoSchema, audioBase64Schema, audioMimeTypeSchema, cloudAsrProviderSchema, cloudProviderModelsViewSchema, earsSettingsPatchSchema, earsSettingsViewSchema, listAsrBackendsResultSchema, listRoutesResultSchema, realtimeCancelledSchema, realtimeSessionSchema, realtimeTranscriptSchema, reasoningEffortsViewSchema, remoteTextResultSchema, textSchema, updateCheckResultSchema, whisperModelStateSchema } from './remote-contract.js'
+import { aboutInfoSchema, audioBase64Schema, audioMimeTypeSchema, cloudAsrProviderSchema, cloudProviderModelsViewSchema, earsSettingsPatchSchema, earsSettingsViewSchema, listAsrBackendsResultSchema, listRoutesResultSchema, realtimeCancelledSchema, realtimeSessionSchema, realtimeTranscriptSchema, reasoningEffortsViewSchema, remoteTextResultSchema, textSchema, updateCheckResultSchema, whisperModelStateSchema, qwenModelStateSchema } from './remote-contract.js'
 
 /**
  * One strict wire codec over a zod v4 schema.
@@ -198,6 +198,17 @@ export const EARS_REMOTE_DESCRIPTORS = [
     }],
     result: strictCodec('dsh-ears#WhisperModelState', whisperModelStateSchema)
   },
+  ...(['getQwenModelState', 'downloadQwenModel', 'cancelQwenModelDownload', 'deleteQwenModel', 'startQwenService', 'unloadQwenService'] as const).map((method) => ({
+    id: 'dsh-ears#dshEars/' + method,
+    service: 'dshEarsPolish',
+    namespace: 'dshEars',
+    method,
+    invocation: { kind: 'direct' },
+    parameters: [
+      { name: 'model', wire: 'model', source: 'json', codec: strictCodec('string', textSchema) }
+    ],
+    result: strictCodec('dsh-ears#Qwen3ModelState', qwenModelStateSchema)
+  })),
   {
     id: 'dsh-ears#dshEars/startRealtime',
     service: 'dshEarsPolish',
