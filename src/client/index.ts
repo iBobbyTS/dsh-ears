@@ -118,6 +118,7 @@ export async function apply(ctx: Context): Promise<() => Promise<void>> {
             },
             earsT,
             useUiLocale,
+            remote: earsRemote,
             ...settingsController.actions()
           })
         },
