@@ -58,6 +58,7 @@
     "README.en.md",
     "CHANGELOG.md",
     "assets",
+    "python/qwen3_worker.py",
     "locale/*.json"
   ],
   "packageManager": "pnpm@11.19.0",

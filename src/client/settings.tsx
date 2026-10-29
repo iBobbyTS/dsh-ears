@@ -15,14 +15,15 @@ import {
   XiaomiMimoIcon
 } from './provider-icons.js'
 import type { MenuEntry } from '@deepseek-ai/dsh-client-ui-primitives'
-import { MAX_POLISH_PROMPT_LENGTH, MIMO_ASR_DEFAULT_CLUSTER, WHISPER_MODEL_IDS, effectiveRecognitionLanguage, settingsPageLabel } from '../config.js'
+import { MAX_POLISH_PROMPT_LENGTH, MIMO_ASR_DEFAULT_CLUSTER, WHISPER_MODEL_IDS, QWEN3_MODELS, effectiveRecognitionLanguage, settingsPageLabel } from '../config.js'
 import type { EarsSettings, PolishRoute } from '../config.js'
 import { DEFAULT_EARS_SETTINGS } from '../config.js'
 import { CLOUD_ASR_PROVIDERS, cloudAsrBackendSelection, cloudAsrStaticModelsFor, cloudProviderEntry, type CloudAsrCredentialField, type CloudAsrProviderEntry } from '../asr/providers.js'
 import { POLISH_SYSTEM_PROMPT } from '../polish/prompts.js'
 import { EMPTY_SHORTCUT_RECORDER, formatModifierChord, formatShortcut, isReservedShortcut, reduceShortcutRecorder, shortcutRejectReason } from '../shortcut.js'
 import type { ShortcutModifier, ShortcutRecorderInput } from '../shortcut.js'
-import type { AboutInfo, UpdateCheckResult, WhisperModelState } from '../remote-contract.js'
+import type { AboutInfo, UpdateCheckResult, WhisperModelState, Qwen3ModelState } from '../remote-contract.js'
+import type { EarsRemote } from '../remote.js'
 import type { CloudModelsHook, CloudModelsView, EarsCardHook, EarsCardState, EarsSettingsHook, FieldName, ReasoningEffortsHook, RouteHook, WhisperModelHook } from './settings-controller.js'
 import { localeEn, localizedErrorText, type LocaleKey, type Translate } from './settings-locale.js'
 import styles from './SettingsSection.module.css'
@@ -33,6 +34,7 @@ export type { LocaleKey, Translate } from './settings-locale.js'
 
 
 interface EarsSettingsSectionProps {
+  readonly remote: EarsRemote
   readonly useEarsCard: EarsCardHook
   readonly useEarsRoutes: RouteHook
   readonly useEarsReasoning: ReasoningEffortsHook
@@ -177,6 +179,7 @@ export function EarsSettingsSection(props: EarsSettingsSectionProps): ReactNode 
     { type: 'label', id: 'group-local', text: t('groupLocal') },
     { id: 'web-speech', label: t('webSpeechBackend') },
     { id: 'local-whisper', label: t('localWhisperBackend') },
+    { id: 'local-qwen3', label: t('localQwenBackend') },
     { type: 'separator', id: 'separator-cloud' },
     { type: 'label', id: 'group-cloud', text: t('groupCloud') },
     ...CLOUD_ASR_PROVIDERS.map((provider) => ({ id: provider.id, label: t(provider.providerLabelKey as LocaleKey), icon: providerIcons[provider.id]?.() }))
@@ -249,6 +252,11 @@ export function EarsSettingsSection(props: EarsSettingsSectionProps): ReactNode 
             <SelectRow label={t('localAcceleration')} hint={localWhisperAccelerations.length === 0 ? t('localAccelerationUnavailable') : t('localAccelerationHint')} value={state.localWhisperAcceleration.text} options={localWhisperAccelerations.map((acceleration) => [acceleration, t(`localAcceleration${acceleration[0].toUpperCase()}${acceleration.slice(1)}` as 'localAccelerationDefault' | 'localAccelerationVulkan' | 'localAccelerationCuda')] as [string, string])} disabled={!state.writable || localWhisperAccelerations.length === 0} invalid={state.localWhisperAcceleration.invalid} onChange={(value) => props.edit('localWhisperAcceleration', value)} />
             <WhisperModelRow label={t('localModel')} value={state.localWhisperModel.text} options={WHISPER_MODEL_IDS.map((model) => [model, model] as [string, string])} disabled={!state.writable} invalid={state.localWhisperModel.invalid} status={whisper.status} modelState={whisper.state} writable={state.writable} onDownload={props.downloadModel} onCancelDownload={props.cancelModel} onDeleteModel={props.deleteModel} onChange={(value) => props.edit('localWhisperModel', value)} t={t} />
             <TextRow label={t('language')} hint={t('asrLanguageHint')} value={state.localWhisperLanguage.text} placeholder="auto" disabled={!state.writable} invalid={state.localWhisperLanguage.invalid} onChange={(event) => props.edit('localWhisperLanguage', event.target.value)} onBlur={props.flush} />
+          </> : null}
+          {state.asrBackend.text === 'local-qwen3' ? <>
+            <SelectRow label={t('qwenModelLabel')} value={state.localQwenModel.text} options={QWEN3_MODELS.map((model) => [model, model] as [string, string])} disabled={!state.writable} invalid={state.localQwenModel.invalid} onChange={(value) => props.edit('localQwenModel', value)} />
+            <TextRow label={t('qwenTtlLabel')} hint={t('qwenTtlHint')} value={state.localQwenIdleTtlMinutes.text} disabled={!state.writable} invalid={state.localQwenIdleTtlMinutes.invalid} numeric onChange={(event) => props.edit('localQwenIdleTtlMinutes', event.target.value)} onBlur={props.flush} />
+            <QwenModelManager remote={props.remote} model={state.localQwenModel.text} t={t} flush={props.flush} />
           </> : null}
           {state.asrBackend.text === 'cloud-openai' ? (
             <CloudProviderFields
@@ -709,6 +717,90 @@ function DeepgramModelRow({ label, value, service, models, dirty, disabled, inva
   )
 }
 
+function QwenModelManager({ remote, model, t, flush }: {
+  remote: EarsRemote
+  model: string
+  t: Translate
+  flush: () => void
+}) {
+  const [status, setStatus] = useState<Qwen3ModelState | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  useEffect(() => {
+    let live = true
+    setStatus(null)
+    setError(null)
+    setConfirmDelete(false)
+    const refresh = async () => {
+      try {
+        const result = await remote.getQwenModelState(model)
+        if (live) {
+          if (result.ok) setStatus(result.value)
+          else setError(result.error.message)
+        }
+      } catch (problem) {
+        if (live) setError(problem instanceof Error ? problem.message : String(problem))
+      }
+    }
+    void refresh()
+    const timer = setInterval(() => void refresh(), 1500)
+    return () => { live = false; clearInterval(timer) }
+  }, [remote, model])
+
+  const action = async (method: 'downloadQwenModel' | 'cancelQwenModelDownload' | 'deleteQwenModel' | 'startQwenService' | 'unloadQwenService') => {
+    if (busy) return
+    flush()
+    setBusy(true)
+    setError(null)
+    try {
+      const result = await remote[method](model)
+      if (!result.ok) throw new Error(result.error.message)
+      setStatus(result.value)
+    } catch (problem) {
+      setError(problem instanceof Error ? problem.message : String(problem))
+    } finally {
+      setBusy(false)
+    }
+  }
+  const phase = status?.phase === 'runtime' ? t('qwenRuntimePhase') : t('qwenWeightsPhase')
+  const message = status === null ? t('whisperChecking')
+    : !status.supported ? t('qwenUnsupported')
+      : status.downloading ? t('qwenDownloading', { phase })
+        : status.loaded ? t('qwenLoaded', { count: status.activeSessions })
+          : status.downloaded ? t('qwenDownloaded') + ' · ' + t('qwenUnloaded')
+            : t('qwenNotDownloaded')
+  return <div className={styles.row}>
+    <div className={styles.rowText}>
+      <div className={styles.rowTitle}>{t('localQwenBackend')}</div>
+      <div className={styles.rowDesc}>{message}</div>
+      {status?.expiresAt ? <div className={styles.rowDesc}>{t('qwenExpires', { time: new Date(status.expiresAt).toLocaleTimeString() })}</div> : null}
+      {error ?? status?.error ? <div className={styles.statusError} role="alert">{error ?? status?.error}</div> : null}
+      <div className={styles.rowDescInline}>
+        {status?.supported && (!status.downloaded || !status.runtimeInstalled) && !status.downloading ? (
+          <button type="button" className={styles.linkButton} disabled={busy} onClick={() => void action('downloadQwenModel')}>{t('qwenDownload')}</button>
+        ) : null}
+        {status?.downloading ? (
+          <button type="button" className={styles.linkButton} disabled={busy} onClick={() => void action('cancelQwenModelDownload')}>{t('qwenCancel')}</button>
+        ) : null}
+        {status?.downloaded && !status.loaded ? (
+          <button type="button" className={styles.linkButton} disabled={busy} onClick={() => void action('startQwenService')}>{t('qwenStart')}</button>
+        ) : null}
+        {status?.loaded ? (
+          <button type="button" className={styles.linkButton} disabled={busy || status.activeSessions > 0} onClick={() => void action('unloadQwenService')}>{t('qwenUnload')}</button>
+        ) : null}
+        {status?.downloaded ? (
+          <button type="button" className={styles.linkButton} disabled={busy || status.activeSessions > 0} onClick={() => {
+            if (!confirmDelete) { setConfirmDelete(true); return }
+            setConfirmDelete(false)
+            void action('deleteQwenModel')
+          }}>{confirmDelete ? t('qwenDeleteConfirm') : t('qwenDelete')}</button>
+        ) : null}
+      </div>
+    </div>
+  </div>
+}
+
 function WhisperModelRow({ label, value, options, disabled, invalid, status, modelState, writable, onDownload, onCancelDownload, onDeleteModel, onChange, t }: { label: string; value: string; options: [string, string][]; disabled: boolean; invalid: boolean; status: 'loading' | 'ready'; modelState: WhisperModelState; writable: boolean; onDownload: () => void; onCancelDownload: () => void; onDeleteModel: () => void; onChange: (value: string) => void; t: Translate }) {
   const [open, setOpen] = useState(false)
   const selected = options.find(([optionValue]) => optionValue === value)
@@ -812,6 +904,7 @@ function uniqueProviders(routes: readonly PolishRoute[]): PolishRoute[] {
 
 function backendHint(backend: string, provider: string, t: Translate): string {
   if (backend === 'local-whisper') return t('backendHintLocalWhisper')
+  if (backend === 'local-qwen3') return t('backendHintLocalQwen')
   if (backend === 'cloud-openai') {
     return t((cloudProviderEntry(provider)?.backendHintKey ?? 'backendHintCustom') as LocaleKey)
   }

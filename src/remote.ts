@@ -1,7 +1,7 @@
 import type { RemoteResult, TypertRemoteContribution } from '@deepseek-ai/dsh-typert-protocol'
 import type { ClientRemote } from '@deepseek-ai/dsh-api-remotes/client'
 import { EARS_REMOTE_DESCRIPTORS } from './remote-definitions.js'
-import type { AboutInfo, AsrBackendInfo, CloudProviderModelsView, EarsSettingsPatch, EarsSettingsView, PolishRoute, ReasoningEffortsView, RealtimeSession, RealtimeTranscript, RemoteTextResult, UpdateCheckResult, WhisperModelState } from './remote-contract.js'
+import type { AboutInfo, AsrBackendInfo, CloudProviderModelsView, EarsSettingsPatch, EarsSettingsView, PolishRoute, ReasoningEffortsView, RealtimeSession, RealtimeTranscript, RemoteTextResult, UpdateCheckResult, WhisperModelState, Qwen3ModelState } from './remote-contract.js'
 
 export type EarsRemote = ClientRemote['dshEars']
 
@@ -15,6 +15,12 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
     listRoutes: () => Promise<RemoteResult<PolishRoute[]>>
     listAsrBackends: () => Promise<RemoteResult<AsrBackendInfo[]>>
     listReasoningEfforts: (provider: string, model: string) => Promise<RemoteResult<ReasoningEffortsView>>
+    getQwenModelState: (model: string) => Promise<RemoteResult<Qwen3ModelState>>
+    downloadQwenModel: (model: string) => Promise<RemoteResult<Qwen3ModelState>>
+    cancelQwenModelDownload: (model: string) => Promise<RemoteResult<Qwen3ModelState>>
+    deleteQwenModel: (model: string) => Promise<RemoteResult<Qwen3ModelState>>
+    startQwenService: (model: string) => Promise<RemoteResult<Qwen3ModelState>>
+    unloadQwenService: (model: string) => Promise<RemoteResult<Qwen3ModelState>>
     getWhisperModelState: (model: string) => Promise<RemoteResult<WhisperModelState>>
     downloadWhisperModel: (model: string) => Promise<RemoteResult<WhisperModelState>>
     cancelWhisperModelDownload: (model: string) => Promise<RemoteResult<WhisperModelState>>
@@ -36,6 +42,12 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
     'dshEars/listRoutes': () => Promise<RemoteResult<PolishRoute[]>>
     'dshEars/listAsrBackends': () => Promise<RemoteResult<AsrBackendInfo[]>>
     'dshEars/listReasoningEfforts': (provider: string, model: string) => Promise<RemoteResult<ReasoningEffortsView>>
+    'dshEars/getQwenModelState': (model: string) => Promise<RemoteResult<Qwen3ModelState>>
+    'dshEars/downloadQwenModel': (model: string) => Promise<RemoteResult<Qwen3ModelState>>
+    'dshEars/cancelQwenModelDownload': (model: string) => Promise<RemoteResult<Qwen3ModelState>>
+    'dshEars/deleteQwenModel': (model: string) => Promise<RemoteResult<Qwen3ModelState>>
+    'dshEars/startQwenService': (model: string) => Promise<RemoteResult<Qwen3ModelState>>
+    'dshEars/unloadQwenService': (model: string) => Promise<RemoteResult<Qwen3ModelState>>
     'dshEars/getWhisperModelState': (model: string) => Promise<RemoteResult<WhisperModelState>>
     'dshEars/downloadWhisperModel': (model: string) => Promise<RemoteResult<WhisperModelState>>
     'dshEars/cancelWhisperModelDownload': (model: string) => Promise<RemoteResult<WhisperModelState>>

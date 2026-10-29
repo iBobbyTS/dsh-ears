@@ -150,6 +150,14 @@ describe('settings Remote contract', () => {
     })).toMatchObject({ modelCapabilities: { 'batch-only': { batch: true, streaming: false } } })
   })
 
+  it('accepts a local Qwen3-ASR model and a bounded idle TTL', () => {
+    expect(earsSettingsPatchSchema.parse({ asrBackend: 'local-qwen3', localQwenModel: '1.7b-8bit', localQwenIdleTtlMinutes: 60 }))
+      .toEqual({ asrBackend: 'local-qwen3', localQwenModel: '1.7b-8bit', localQwenIdleTtlMinutes: 60 })
+    expect(() => earsSettingsPatchSchema.parse({ localQwenModel: '../../escape' })).toThrow()
+    expect(() => earsSettingsPatchSchema.parse({ localQwenIdleTtlMinutes: 0 })).toThrow()
+    expect(() => earsSettingsPatchSchema.parse({ localQwenIdleTtlMinutes: 1441 })).toThrow()
+  })
+
   it('rejects settings patches with the wrong wire types', () => {
     expect(() => earsSettingsPatchSchema.parse({ maxRecordingSeconds: '120' })).toThrow()
     expect(() => earsSettingsPatchSchema.parse({ voiceShortcutEnabled: 'yes' })).toThrow()
@@ -292,7 +300,7 @@ describe('settings Remote contract', () => {
       }
       codecs.push({ subject: `${descriptor.id} result`, codec: descriptor.result })
     }
-    expect(codecs).toHaveLength(36)
+    expect(codecs).toHaveLength(48)
 
     for (const { subject, codec } of codecs) {
       const value = codec as { mode?: unknown; typeSymbol?: unknown; create?: unknown }

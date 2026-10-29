@@ -1,4 +1,4 @@
-export const ASR_BACKEND_IDS = ['web-speech', 'local-whisper', 'cloud-openai'] as const
+export const ASR_BACKEND_IDS = ['web-speech', 'local-whisper', 'local-qwen3', 'cloud-openai'] as const
 export type AsrBackendId = typeof ASR_BACKEND_IDS[number]
 
 export const CLOUD_ASR_PROVIDER_IDS = ['groq', 'deepgram', 'bailian', 'tencent', 'mimo', 'siliconflow', 'volcengine', 'custom'] as const
@@ -59,6 +59,12 @@ export const TENCENT_ASR_SERVICE_IDS = ['recording-file', 'realtime'] as const
 export type TencentAsrServiceId = typeof TENCENT_ASR_SERVICE_IDS[number]
 export const TENCENT_ASR_DEFAULT_SERVICE: TencentAsrServiceId = 'recording-file'
 
+export const QWEN3_MODELS = ['1.7b-8bit', '0.6b-8bit'] as const
+export type Qwen3ModelId = typeof QWEN3_MODELS[number]
+export const DEFAULT_QWEN3_MODEL: Qwen3ModelId = '1.7b-8bit'
+export const QWEN3_DEFAULT_TTL_MINUTES = 60
+export const validQwen3TTL = (minutes: number): boolean => Number.isSafeInteger(minutes) && minutes >= 1 && minutes <= 1440
+
 export const WHISPER_MODEL_IDS = ['tiny', 'base', 'small', 'medium', 'large', 'turbo'] as const
 export type WhisperModelId = typeof WHISPER_MODEL_IDS[number]
 
@@ -76,6 +82,10 @@ export interface RecognitionSettings {
     acceleration: WhisperAccelerationId | string
     language: string
   }
+  localQwen: {
+    model: Qwen3ModelId | string
+    idleTtlMinutes: number
+  }
   cloudProvider: CloudAsrProviderId | string
   maxRecordingSeconds: number
 }
@@ -91,6 +101,7 @@ export const DEFAULT_RECOGNITION_SETTINGS: RecognitionSettings = Object.freeze({
     acceleration: 'default',
     language: ''
   }),
+  localQwen: Object.freeze({ model: DEFAULT_QWEN3_MODEL, idleTtlMinutes: QWEN3_DEFAULT_TTL_MINUTES }),
   cloudProvider: 'groq',
   maxRecordingSeconds: 120
 })
