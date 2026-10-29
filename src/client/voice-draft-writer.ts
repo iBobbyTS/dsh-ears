@@ -28,6 +28,7 @@ export class VoiceDraftWriter {
 
   update(text: string): boolean {
     if (this.invalidated) return false
+    if (!this.applied && text === '') return true
     if (text === this.current && this.applied) return true
     const actualRevision = this.actions.captureInsertion().draftRev
     if (actualRevision !== this.revision) {
@@ -51,7 +52,7 @@ export class VoiceDraftWriter {
   }
 
   finalize(text: string): boolean {
-    const applied = this.update(text)
+    const applied = !this.applied && text === '' ? true : this.update(text)
     this.invalidated = true // no late audio frame can write after final
     return applied
   }
