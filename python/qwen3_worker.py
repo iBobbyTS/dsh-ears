@@ -46,6 +46,7 @@ def serve(model_dir: str) -> None:
     send({"type": "ready"})
 
     for line in sys.stdin:
+        req_id = None
         try:
             request = json.loads(line)
             req_id = request.get("id")
@@ -88,7 +89,7 @@ def serve(model_dir: str) -> None:
                 raise ValueError("Unknown command")
         except Exception as exc:
             # Never echo audio or payloads into errors/logs.
-            send({"id": req_id if "req_id" in locals() else None,
+            send({"id": req_id,
                   "error": f"{type(exc).__name__}: {str(exc)[:200]}"})
 
 
