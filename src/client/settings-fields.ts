@@ -1,4 +1,4 @@
-import { ASR_BACKEND_IDS, CLOUD_ASR_PROVIDER_IDS, MAX_POLISH_PROMPT_LENGTH, SETTINGS_DISPLAY_NAME_IDS, WHISPER_ACCELERATION_IDS, WHISPER_MODEL_IDS, isValidRecordingLimit } from '../config.js'
+import { ASR_BACKEND_IDS, CLOUD_ASR_PROVIDER_IDS, MAX_POLISH_PROMPT_LENGTH, SETTINGS_DISPLAY_NAME_IDS, WHISPER_ACCELERATION_IDS, WHISPER_MODEL_IDS, QWEN3_MODELS, validQwen3TTL, isValidRecordingLimit } from '../config.js'
 import type { EarsSettings } from '../config.js'
 import { cloudAsrFieldDefinition, cloudAsrModelField as registryCloudAsrModelField, validateCloudAsrFieldValue, type CloudAsrModelField } from '../asr/providers.js'
 import { shortcutRejectReason } from '../shortcut.js'
@@ -10,7 +10,7 @@ export function cloudAsrModelField(provider: string): CloudAsrModelField {
 }
 
 export function parseSettingsField(field: FieldName, text: string): unknown {
-  if (field === 'maxRecordingSeconds') return Number(text)
+  if (field === 'maxRecordingSeconds' || field === 'localQwenIdleTtlMinutes') return Number(text)
   if (field === 'polishingEnabled' || field === 'voiceShortcutEnabled' || field === 'voiceSoundsEnabled') return text === 'on'
   return text
 }
@@ -18,6 +18,8 @@ export function parseSettingsField(field: FieldName, text: string): unknown {
 export function isSettingsFieldInvalid(field: FieldName, text: string): boolean {
   const cloudField = cloudAsrFieldDefinition(field)
   if (cloudField !== undefined) return !validateCloudAsrFieldValue(cloudField, text)
+  if (field === 'localQwenIdleTtlMinutes') return !validQwen3TTL(Number(text))
+  if (field === 'localQwenModel') return !(QWEN3_MODELS as readonly string[]).includes(text)
   if (field === 'webSpeechLanguage' || field === 'localWhisperLanguage') return false
   if (field === 'asrBackend') return !(ASR_BACKEND_IDS as readonly string[]).includes(text)
   if (field === 'localWhisperModel') return !(WHISPER_MODEL_IDS as readonly string[]).includes(text)
