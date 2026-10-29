@@ -50,6 +50,13 @@ describe('VoiceDraftWriter', () => {
     expect(editor.value()).toBe('before ')
   })
 
+  it('does not delete selected human text through speculative ASR', () => {
+    const editor = fakeEditor('important source code')
+    const selection = { start: 10, end: 16, draftRev: 1 }
+    const writer = new VoiceDraftWriter(editor.actions, selection)
+    expect(writer.update('speech')).toBe(false)
+    expect(editor.value()).toBe('important source code')
+  })
   it('preserves edits made before the first ASR hypothesis', () => {
     const editor = fakeEditor()
     const writer = new VoiceDraftWriter(editor.actions)
