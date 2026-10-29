@@ -117,6 +117,7 @@ export class Qwen3Runtime {
     if (!validQwen3Model(model)) throw new Error('Unknown local Qwen3-ASR model')
     if (!platformSupported()) throw new Error('Qwen3-ASR MLX requires macOS Apple Silicon')
     if (this.disposed) throw new Error('Qwen3-ASR runtime is disposed')
+    if (this.active.size > 0) throw new Error('Stop Qwen3-ASR recording before installing model files')
     if (this.job) {
       if (this.job.model !== model) throw new Error('Another Qwen3-ASR model is downloading')
       return this.state(model)
