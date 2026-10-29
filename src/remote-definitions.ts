@@ -203,12 +203,12 @@ export const EARS_REMOTE_DESCRIPTORS = [
     service: 'dshEarsPolish',
     namespace: 'dshEars',
     method,
-    invocation: { kind: 'direct' },
+    invocation: { kind: 'direct' as const },
     parameters: [
-      { name: 'model', wire: 'model', source: 'json', codec: strictCodec('string', textSchema) }
+      { name: 'model', wire: 'model', source: 'json' as const, codec: strictCodec('string', textSchema) }
     ],
     result: strictCodec('dsh-ears#Qwen3ModelState', qwenModelStateSchema)
-  })),
+  } as const)),
   {
     id: 'dsh-ears#dshEars/startRealtime',
     service: 'dshEarsPolish',
