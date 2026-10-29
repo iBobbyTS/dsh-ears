@@ -25,6 +25,29 @@ https://github.com/user-attachments/assets/1363768e-a393-44bd-a008-1ce2055cac41
 
 dsh-ears adds voice input and LLM-powered text polishing to DeepSeek Harness. It supports in-browser Web Speech, local Whisper, and popular speech-to-text (ASR) APIs.
 
+## Local MLX Qwen3-ASR streaming (fork feature branch)
+
+This branch adds native Qwen3-ASR MLX streaming on Apple Silicon macOS, with live transcript revision inside the DSH Composer. Each voice-owned span uses revision-guarded insertion; pre-existing reference chips are retained. If the user edits or submits the draft while dictating, late ASR output cannot overwrite those edits.
+
+In Plugin settings → Recognition, select Local Qwen3-ASR (MLX). Choose 1.7b-8bit (default) or 0.6b-8bit and click Install / download. The DSH Host creates an isolated Python virtual environment, installs pinned mlx-qwen3-asr, and downloads allowlisted weights. Use the Composer microphone directly after setup: **no manual serve, separate API server, or listening port is required**.
+
+The plugin panel includes download cancellation, weight deletion, service preload, and manual unload. The **default idle TTL is 60 minutes** (configurable 1–1440): after the final session closes, the Host stops the MLX worker to free model memory. **Downloaded weights remain on disk** and are automatically reloaded on the next recording. Active dictation is never stopped by the idle TTL.
+
+Prerequisites: Apple Silicon macOS, discoverable Python 3.10+, internet access to PyPI and Hugging Face for first-time setup. Downloads begin only from the plugin control; speech inference stays on-device. Existing Whisper, Web Speech, and cloud backends remain available on other platforms.
+
+This branch has not yet completed a real M4 Max integration acceptance test. It uses Qwen3-ASR windowed streaming re-decode with Prefix Rollback and one-second chunks. Manual draft edits invalidate ownership of the interim speech span to preserve the user's text.
+
+**Install this branch (not yet published to npm):**
+
+```sh
+git clone -b feat/local-qwen3-mlx-streaming https://github.com/iBobbyTS/dsh-ears.git
+cd dsh-ears
+pnpm use:platform
+pnpm install --frozen-lockfile
+pnpm check && pnpm test && pnpm build && pnpm verify:package
+# Then select this built local directory in the DSH Desktop plugin manager
+```
+
 ## Install
 
 Prerequisites: [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) `>=0.2.0-rc.1`, and Node.js `^22.19.0 || >=24.0.0`.
