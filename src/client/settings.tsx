@@ -777,7 +777,7 @@ function QwenModelManager({ remote, model, t, flush }: {
       {status?.expiresAt ? <div className={styles.rowDesc}>{t('qwenExpires', { time: new Date(status.expiresAt).toLocaleTimeString() })}</div> : null}
       {error ?? status?.error ? <div className={styles.statusError} role="alert">{error ?? status?.error}</div> : null}
       <div className={styles.rowDescInline}>
-        {status?.supported && !status.downloaded && !status.downloading ? (
+        {status?.supported && (!status.downloaded || !status.runtimeInstalled) && !status.downloading ? (
           <button type="button" className={styles.linkButton} disabled={busy} onClick={() => void action('downloadQwenModel')}>{t('qwenDownload')}</button>
         ) : null}
         {status?.downloading ? (
