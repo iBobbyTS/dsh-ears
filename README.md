@@ -25,6 +25,29 @@ https://github.com/user-attachments/assets/1363768e-a393-44bd-a008-1ce2055cac41
 
 dsh-ears 为 DeepSeek Harness 提供语音输入与 LLM 润色整理能力。支持浏览器 Web Speech、本地 Whisper 以及主流语音识别（ASR）API 服务。
 
+## 本地 Qwen3-ASR 流式输入（fork 功能分支）
+
+此分支增加 Apple Silicon macOS 上的 Qwen3-ASR MLX 有状态流式识别，可在 DSH Composer 内实时更新文字、回退修订。语音文字使用版本校验的选区写入，不会整篇重建草稿、删除引用 Chip。录音期间人工修改或提交草稿后，迟到的语音结果不会覆盖人工内容。
+
+使用方式：在「插件设置 → 识别」中选择「本地 Qwen3-ASR (MLX)」，选 1.7b-8bit（默认）或 0.6b-8bit，点击「安装 / 下载」。插件在 DSH Host 下自动创建独立 Python venv、安装固定版本 mlx-qwen3-asr、下载模型。下载完成后直接在 Composer 点击麦克风使用，不需要手动 serve、开放监听端口或维护独立服务。
+
+插件面板支持取消下载、删除权重、预加载服务、手动卸载。默认 **60 分钟空闲 TTL**（可配置 1–1440 分钟）：最后一个活动会话结束后计时，到期停止模型 Worker，释放内存，**权重文件保留在本机**，下次识别自动加载。活跃录音不会被空闲计时器终止。
+
+系统要求：macOS Apple Silicon、可发现的 Python 3.10+；首次安装必须连接 PyPI 和 Hugging Face，安装过程中可以在插件设置里取消；推理始终在本机。非 Apple Silicon 系统继续使用现有 Whisper/Web Speech/云端后端。
+
+该分支尚未经过 M4 Max 实机端到端验收。原生流式采用 Qwen3-ASR 窗口重解码 + Prefix Rollback，默认 1 秒块。如在录音中手动修改 Composer，插件将放弃之后对此段的自动写入，避免覆盖用户草稿。
+
+**从此分支安装（尚未发布 npm）：**
+
+```sh
+git clone -b feat/local-qwen3-mlx-streaming https://github.com/iBobbyTS/dsh-ears.git
+cd dsh-ears
+pnpm use:platform
+pnpm install --frozen-lockfile
+pnpm check && pnpm test && pnpm build && pnpm verify:package
+# 然后在 DSH Desktop 插件管理器选择构建后的本地目录安装
+```
+
 ## 安装
 
 前置依赖：[DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) `>=0.2.0-rc.1`，以及 Node.js `^22.19.0 || >=24.0.0`。
