@@ -27,7 +27,6 @@ def download(model_id: str, directory: str) -> None:
     snapshot_download(
         repo_id=MODEL_REPOS[model_id],
         local_dir=directory,
-        local_dir_use_symlinks=False,
     )
     # Written last: incomplete downloads cannot masquerade as a ready model.
     marker = os.path.join(directory, ".dsh-ears-ready")
