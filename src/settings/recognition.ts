@@ -64,6 +64,8 @@ export type Qwen3ModelId = typeof QWEN3_MODELS[number]
 export const DEFAULT_QWEN3_MODEL: Qwen3ModelId = '1.7b-8bit'
 export const QWEN3_DEFAULT_TTL_MINUTES = 60
 export const validQwen3TTL = (minutes: number): boolean => Number.isSafeInteger(minutes) && minutes >= 1 && minutes <= 1440
+/** Matches the context cap enforced by the Python worker's start command. */
+export const MAX_QWEN3_PROMPT_LENGTH = 1024
 
 export const WHISPER_MODEL_IDS = ['tiny', 'base', 'small', 'medium', 'large', 'turbo'] as const
 export type WhisperModelId = typeof WHISPER_MODEL_IDS[number]
@@ -85,6 +87,8 @@ export interface RecognitionSettings {
   localQwen: {
     model: Qwen3ModelId | string
     idleTtlMinutes: number
+    /** Biasing context prompt forwarded to the MLX streaming session; empty disables biasing. */
+    prompt: string
   }
   cloudProvider: CloudAsrProviderId | string
   maxRecordingSeconds: number
@@ -101,7 +105,7 @@ export const DEFAULT_RECOGNITION_SETTINGS: RecognitionSettings = Object.freeze({
     acceleration: 'default',
     language: ''
   }),
-  localQwen: Object.freeze({ model: DEFAULT_QWEN3_MODEL, idleTtlMinutes: QWEN3_DEFAULT_TTL_MINUTES }),
+  localQwen: Object.freeze({ model: DEFAULT_QWEN3_MODEL, idleTtlMinutes: QWEN3_DEFAULT_TTL_MINUTES, prompt: '' }),
   cloudProvider: 'groq',
   maxRecordingSeconds: 120
 })

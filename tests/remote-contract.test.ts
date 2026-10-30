@@ -3,7 +3,7 @@ import { asrBackendInfoSchema, cloudProviderModelsViewSchema, earsSettingsPatchS
 import { TYPERT } from '../src/typert.js'
 import { TYPERT_REMOTE } from '../src/remote.js'
 import { EARS_REMOTE_DESCRIPTORS } from '../src/remote-definitions.js'
-import { MAX_CLOUD_API_KEY_LENGTH } from '../src/config.js'
+import { MAX_CLOUD_API_KEY_LENGTH, MAX_QWEN3_PROMPT_LENGTH } from '../src/config.js'
 
 describe('structured error Remote contracts', () => {
   it('accepts optional error codes and interpolation parameters', () => {
@@ -156,6 +156,11 @@ describe('settings Remote contract', () => {
     expect(() => earsSettingsPatchSchema.parse({ localQwenModel: '../../escape' })).toThrow()
     expect(() => earsSettingsPatchSchema.parse({ localQwenIdleTtlMinutes: 0 })).toThrow()
     expect(() => earsSettingsPatchSchema.parse({ localQwenIdleTtlMinutes: 1441 })).toThrow()
+  })
+
+  it('accepts a bounded local Qwen3-ASR context prompt', () => {
+    expect(earsSettingsPatchSchema.parse({ localQwenPrompt: '简体中文' })).toEqual({ localQwenPrompt: '简体中文' })
+    expect(() => earsSettingsPatchSchema.parse({ localQwenPrompt: 'x'.repeat(MAX_QWEN3_PROMPT_LENGTH + 1) })).toThrow()
   })
 
   it('rejects settings patches with the wrong wire types', () => {

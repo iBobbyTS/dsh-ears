@@ -198,8 +198,15 @@ export const EARS_REMOTE_DESCRIPTORS = [
     }],
     result: strictCodec('dsh-ears#WhisperModelState', whisperModelStateSchema)
   },
-  ...(['getQwenModelState', 'downloadQwenModel', 'cancelQwenModelDownload', 'deleteQwenModel', 'startQwenService', 'unloadQwenService'] as const).map((method) => ({
-    id: 'dsh-ears#dshEars/' + method,
+  ...([
+    ['getQwenModelState', 'dsh-ears#dshEars/getQwenModelState'],
+    ['downloadQwenModel', 'dsh-ears#dshEars/downloadQwenModel'],
+    ['cancelQwenModelDownload', 'dsh-ears#dshEars/cancelQwenModelDownload'],
+    ['deleteQwenModel', 'dsh-ears#dshEars/deleteQwenModel'],
+    ['startQwenService', 'dsh-ears#dshEars/startQwenService'],
+    ['unloadQwenService', 'dsh-ears#dshEars/unloadQwenService']
+  ] as const).map(([method, id]) => ({
+    id,
     service: 'dshEarsPolish',
     namespace: 'dshEars',
     method,

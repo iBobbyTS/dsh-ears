@@ -24,7 +24,8 @@ import {
   WHISPER_ACCELERATION_IDS,
   WHISPER_MODEL_IDS,
   QWEN3_MODELS,
-  validQwen3TTL
+  validQwen3TTL,
+  MAX_QWEN3_PROMPT_LENGTH
 } from './settings/recognition.js'
 import { isBailianAsrHost, isHttpEndpoint, MAX_CLOUD_API_KEY_LENGTH } from './settings/cloud-asr.js'
 import { DEFAULT_POLISHING_SETTINGS, MAX_POLISH_PROMPT_LENGTH } from './settings/polishing.js'
@@ -71,7 +72,8 @@ export {
   QWEN3_MODELS,
   DEFAULT_QWEN3_MODEL,
   QWEN3_DEFAULT_TTL_MINUTES,
-  validQwen3TTL
+  validQwen3TTL,
+  MAX_QWEN3_PROMPT_LENGTH
 } from './settings/recognition.js'
 export { isBailianAsrHost, isHttpEndpoint, MAX_CLOUD_API_KEY_LENGTH } from './settings/cloud-asr.js'
 export { MAX_POLISH_PROMPT_LENGTH } from './settings/polishing.js'
@@ -100,6 +102,7 @@ export interface EarsSettings {
   localWhisperLanguage: string
   localQwenModel: string
   localQwenIdleTtlMinutes: number
+  localQwenPrompt: string
   cloudAsrProvider: CloudAsrProviderId | string
   cloudAsrGroqApiKey: string
   cloudAsrGroqModel: string
@@ -154,6 +157,7 @@ export const DEFAULT_EARS_SETTINGS: EarsSettings = Object.freeze({
   localWhisperLanguage: DEFAULT_RECOGNITION_SETTINGS.localWhisper.language,
   localQwenModel: DEFAULT_RECOGNITION_SETTINGS.localQwen.model,
   localQwenIdleTtlMinutes: DEFAULT_RECOGNITION_SETTINGS.localQwen.idleTtlMinutes,
+  localQwenPrompt: DEFAULT_RECOGNITION_SETTINGS.localQwen.prompt,
   cloudAsrProvider: DEFAULT_RECOGNITION_SETTINGS.cloudProvider,
   cloudAsrGroqApiKey: '',
   cloudAsrGroqModel: '',
@@ -232,6 +236,7 @@ export function validateEarsSettings(settings: EarsSettings): void {
   if (!(WHISPER_ACCELERATION_IDS as readonly string[]).includes(settings.localWhisperAcceleration)) throw new Error('Unknown dsh-ears Whisper acceleration')
   if (!(QWEN3_MODELS as readonly string[]).includes(settings.localQwenModel)) throw new Error('Unknown local Qwen3-ASR model')
   if (!validQwen3TTL(settings.localQwenIdleTtlMinutes)) throw new Error('Local Qwen3-ASR TTL must be 1–1440 minutes')
+  if (settings.localQwenPrompt.trim().length > MAX_QWEN3_PROMPT_LENGTH) throw new Error('Local Qwen3-ASR prompt is too long')
   if (!(CLOUD_ASR_PROVIDER_IDS as readonly string[]).includes(settings.cloudAsrProvider)) throw new Error('Unknown dsh-ears cloud ASR provider')
   for (const provider of CLOUD_ASR_PROVIDERS) {
     for (const definition of provider.fields) {
@@ -265,6 +270,7 @@ export function repairInvalidEarsSettings(settings: EarsSettings): EarsSettingsR
   if (!(WHISPER_ACCELERATION_IDS as readonly string[]).includes(repaired.localWhisperAcceleration)) replaceWithDefault('localWhisperAcceleration')
   if (!(QWEN3_MODELS as readonly string[]).includes(repaired.localQwenModel)) replaceWithDefault('localQwenModel')
   if (!validQwen3TTL(repaired.localQwenIdleTtlMinutes)) replaceWithDefault('localQwenIdleTtlMinutes')
+  if (typeof repaired.localQwenPrompt !== 'string' || repaired.localQwenPrompt.trim().length > MAX_QWEN3_PROMPT_LENGTH) replaceWithDefault('localQwenPrompt')
   if (!(CLOUD_ASR_PROVIDER_IDS as readonly string[]).includes(repaired.cloudAsrProvider)) replaceWithDefault('cloudAsrProvider')
 
   for (const provider of CLOUD_ASR_PROVIDERS) {

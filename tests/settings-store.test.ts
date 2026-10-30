@@ -25,6 +25,7 @@ describe('canonical Host settings slots', () => {
     const stored = unflattenEarsSettings({
       ...DEFAULT_EARS_SETTINGS,
       localWhisperAcceleration: 'cuda',
+      localQwenPrompt: '简体中文',
       cloudAsrProvider: 'bailian',
       cloudAsrGroqApiKey: 'gsk_groq',
       cloudAsrGroqModel: 'whisper-large-v3-turbo',
@@ -54,6 +55,7 @@ describe('canonical Host settings slots', () => {
       soundsEnabled: true
     })
     expect(stored.recognition.localWhisper).toEqual({ model: 'tiny', acceleration: 'cuda', language: '' })
+    expect(stored.recognition.localQwen).toEqual({ model: '1.7b-8bit', idleTtlMinutes: 60, prompt: '简体中文' })
     expect(stored.cloudAsr.groq).toEqual({ apiKey: 'gsk_groq', model: 'whisper-large-v3-turbo', language: '' })
     expect(stored.cloudAsr.deepgram).toEqual({ apiKey: '', model: 'nova-3', language: '', service: 'recording-file' })
     expect(stored.cloudAsr.customOpenAi).toEqual({
@@ -81,6 +83,7 @@ describe('canonical Host settings slots', () => {
     })
     expect(flattenStoredSettings(stored)).toMatchObject({
       localWhisperAcceleration: 'cuda',
+      localQwenPrompt: '简体中文',
       cloudAsrGroqApiKey: 'gsk_groq',
       cloudAsrCustomApiKey: 'sk_openai',
       cloudAsrBailianModel: 'fun-asr-flash',
@@ -111,6 +114,7 @@ describe('canonical Host settings slots', () => {
     for (const provider of CLOUD_ASR_PROVIDERS) {
       for (const definition of provider.fields) patch[definition.field] = `updated-${provider.id}-${definition.storageKey}`
     }
+    patch.localQwenPrompt = '简体中文'
 
     const storedPatch = flatSettingsPatchToStoredPatch(patch)
     for (const provider of CLOUD_ASR_PROVIDERS) {
@@ -119,6 +123,7 @@ describe('canonical Host settings slots', () => {
         expect(slot[definition.storageKey]).toBe(patch[definition.field])
       }
     }
+    expect((storedPatch.recognition as Record<string, Record<string, unknown>>).localQwen.prompt).toBe('简体中文')
   })
 
   it('maps every flat setting key to a canonical storage path', () => {

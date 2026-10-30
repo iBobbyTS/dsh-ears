@@ -65,4 +65,27 @@ describe('managed Qwen3-ASR', () => {
       runtime.dispose()
     }
   })
+
+  it('forwards the context prompt to the worker start request', async () => {
+    const runtime = new Qwen3Runtime('/nonexistent/dsh-ears-qwen3-unit-test')
+    const sent: Array<Record<string, unknown>> = []
+    const details = runtime as unknown as {
+      ensure(): Promise<void>
+      request(payload: Record<string, unknown>): Promise<{ text: string; final: boolean }>
+    }
+    details.ensure = async () => undefined
+    details.request = async (payload) => {
+      sent.push(payload)
+      return { text: '', final: false }
+    }
+    try {
+      const sessionId = await runtime.open('1.7b-8bit', 60, '简体中文')
+      expect(sessionId).toBeTypeOf('string')
+      expect(sent).toEqual([{ type: 'start', sessionId, chunkSizeSec: 1.0, context: '简体中文' }])
+      const bare = await runtime.open('0.6b-8bit')
+      expect(sent.at(-1)).toMatchObject({ type: 'start', sessionId: bare, context: '' })
+    } finally {
+      runtime.dispose()
+    }
+  })
 })

@@ -36,6 +36,7 @@ const CURRENT_STORED_FIELD_MAPPINGS: readonly StoredFieldMapping[] = [
   { field: 'localWhisperLanguage', path: ['recognition', 'localWhisper', 'language'] },
   { field: 'localQwenModel', path: ['recognition', 'localQwen', 'model'] },
   { field: 'localQwenIdleTtlMinutes', path: ['recognition', 'localQwen', 'idleTtlMinutes'] },
+  { field: 'localQwenPrompt', path: ['recognition', 'localQwen', 'prompt'] },
   { field: 'cloudAsrProvider', path: ['recognition', 'cloudProvider'] },
   { field: 'maxRecordingSeconds', path: ['recognition', 'maxRecordingSeconds'] },
   ...CLOUD_ASR_PROVIDERS.flatMap((provider) => provider.fields.map((definition) => ({
@@ -197,7 +198,8 @@ export function normalizeStoredEarsSettings(raw: unknown): StoredEarsSettings {
       },
       localQwen: {
         model: ownText(localQwen, 'model') ?? ownText(record, 'localQwenModel') ?? DEFAULT_RECOGNITION_SETTINGS.localQwen.model,
-        idleTtlMinutes: ownNumber(localQwen, 'idleTtlMinutes') ?? ownNumber(record, 'localQwenIdleTtlMinutes') ?? DEFAULT_RECOGNITION_SETTINGS.localQwen.idleTtlMinutes
+        idleTtlMinutes: ownNumber(localQwen, 'idleTtlMinutes') ?? ownNumber(record, 'localQwenIdleTtlMinutes') ?? DEFAULT_RECOGNITION_SETTINGS.localQwen.idleTtlMinutes,
+        prompt: ownText(localQwen, 'prompt') ?? ownText(record, 'localQwenPrompt') ?? DEFAULT_RECOGNITION_SETTINGS.localQwen.prompt
       },
       cloudProvider: provider,
       webSpeech: {
@@ -350,6 +352,7 @@ export function flattenStoredSettings(raw: unknown): EarsSettings {
     localWhisperLanguage: stored.recognition.localWhisper.language,
     localQwenModel: stored.recognition.localQwen.model,
     localQwenIdleTtlMinutes: stored.recognition.localQwen.idleTtlMinutes,
+    localQwenPrompt: stored.recognition.localQwen.prompt,
     cloudAsrProvider: stored.recognition.cloudProvider,
     maxRecordingSeconds: stored.recognition.maxRecordingSeconds,
     voiceShortcutEnabled: stored.general.shortcut.enabled,
@@ -392,7 +395,7 @@ export function unflattenEarsSettings(settings: EarsSettings, acceleration = set
         acceleration: normalizeWhisperAcceleration(acceleration),
         language: settings.localWhisperLanguage
       },
-      localQwen: { model: settings.localQwenModel, idleTtlMinutes: settings.localQwenIdleTtlMinutes },
+      localQwen: { model: settings.localQwenModel, idleTtlMinutes: settings.localQwenIdleTtlMinutes, prompt: settings.localQwenPrompt },
       cloudProvider: settings.cloudAsrProvider,
       maxRecordingSeconds: settings.maxRecordingSeconds
     },

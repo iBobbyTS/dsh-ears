@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { ASR_BACKEND_IDS, CLOUD_ASR_PROVIDER_IDS, DEEPGRAM_ASR_DEFAULT_SERVICE, DEEPGRAM_ASR_SERVICE_IDS, DEEPGRAM_DEFAULT_MODEL, MAX_CLOUD_API_KEY_LENGTH, MIMO_ASR_CLUSTERS, MIMO_ASR_DEFAULT_CLUSTER, MIMO_ASR_DEFAULT_SERVICE, MIMO_ASR_SERVICE_IDS, MIMO_DEFAULT_MODEL, SETTINGS_DISPLAY_NAME_IDS, SILICONFLOW_DEFAULT_MODEL, TENCENT_ASR_SERVICE_IDS, VOLCENGINE_ASR_DEFAULT_SERVICE, VOLCENGINE_ASR_SERVICE_IDS, VOLCENGINE_REALTIME_DEFAULT_MODEL, VOLCENGINE_REALTIME_MODEL_IDS, VOLCENGINE_RECORDING_DEFAULT_MODEL, VOLCENGINE_RECORDING_MODEL_IDS, WHISPER_ACCELERATION_IDS, WHISPER_MODEL_IDS, QWEN3_MODELS, DEFAULT_QWEN3_MODEL, QWEN3_DEFAULT_TTL_MINUTES } from './config.js'
+import { ASR_BACKEND_IDS, CLOUD_ASR_PROVIDER_IDS, DEEPGRAM_ASR_DEFAULT_SERVICE, DEEPGRAM_ASR_SERVICE_IDS, DEEPGRAM_DEFAULT_MODEL, MAX_CLOUD_API_KEY_LENGTH, MAX_QWEN3_PROMPT_LENGTH, MIMO_ASR_CLUSTERS, MIMO_ASR_DEFAULT_CLUSTER, MIMO_ASR_DEFAULT_SERVICE, MIMO_ASR_SERVICE_IDS, MIMO_DEFAULT_MODEL, SETTINGS_DISPLAY_NAME_IDS, SILICONFLOW_DEFAULT_MODEL, TENCENT_ASR_SERVICE_IDS, VOLCENGINE_ASR_DEFAULT_SERVICE, VOLCENGINE_ASR_SERVICE_IDS, VOLCENGINE_REALTIME_DEFAULT_MODEL, VOLCENGINE_REALTIME_MODEL_IDS, VOLCENGINE_RECORDING_DEFAULT_MODEL, VOLCENGINE_RECORDING_MODEL_IDS, WHISPER_ACCELERATION_IDS, WHISPER_MODEL_IDS, QWEN3_MODELS, DEFAULT_QWEN3_MODEL, QWEN3_DEFAULT_TTL_MINUTES } from './config.js'
 import type { AsrBackendId, EarsSettings, PolishRoute, WhisperAccelerationId } from './config.js'
 import type { EarsErrorCode, EarsErrorParams } from './errors.js'
 import type { AsrBackendInfo } from './asr/types.js'
@@ -18,6 +18,7 @@ export const earsSettingsSchema = z.object({
   localWhisperLanguage: z.string(),
   localQwenModel: z.string().default(DEFAULT_QWEN3_MODEL),
   localQwenIdleTtlMinutes: z.number().default(QWEN3_DEFAULT_TTL_MINUTES),
+  localQwenPrompt: z.string().default(''),
   cloudAsrProvider: z.string(),
   cloudAsrGroqApiKey: z.string(),
   cloudAsrGroqModel: z.string(),
@@ -72,6 +73,7 @@ export const earsSettingsPatchSchema = z.object({
   localWhisperLanguage: z.string().optional(),
   localQwenModel: z.enum(QWEN3_MODELS).optional(),
   localQwenIdleTtlMinutes: z.number().int().min(1).max(1440).optional(),
+  localQwenPrompt: z.string().max(MAX_QWEN3_PROMPT_LENGTH).optional(),
   cloudAsrProvider: cloudAsrProviderSchema.optional(),
   cloudAsrGroqApiKey: cloudCredentialSchema.optional(),
   cloudAsrGroqModel: z.string().optional(),

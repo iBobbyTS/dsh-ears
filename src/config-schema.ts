@@ -43,7 +43,8 @@ export const EarsSettingsSchema = s.object({
     }).description('Local Whisper model and native acceleration').collapse(),
     localQwen: s.object({
       model: s.string().default(DEFAULT_RECOGNITION_SETTINGS.localQwen.model).description('Qwen3-ASR quantized model').loose().volatile(),
-      idleTtlMinutes: s.number().default(DEFAULT_RECOGNITION_SETTINGS.localQwen.idleTtlMinutes).description('Unload idle Qwen3-ASR after this many minutes (default 60)').loose().volatile()
+      idleTtlMinutes: s.number().default(DEFAULT_RECOGNITION_SETTINGS.localQwen.idleTtlMinutes).description('Unload idle Qwen3-ASR after this many minutes (default 60)').loose().volatile(),
+      prompt: s.string().default(DEFAULT_RECOGNITION_SETTINGS.localQwen.prompt).description('Qwen3-ASR context prompt; biases transcription style, script, or domain terms; leave empty for no bias').loose().volatile()
     }).description('Host-managed MLX streaming ASR').collapse(),
     cloudProvider: s.string().default(DEFAULT_RECOGNITION_SETTINGS.cloudProvider).description(`Active cloud ASR provider: ${CLOUD_ASR_PROVIDER_IDS.join(', ')}`).loose().volatile(),
     maxRecordingSeconds: s.number().default(DEFAULT_RECOGNITION_SETTINGS.maxRecordingSeconds).description('Recording limit in seconds').loose().volatile()

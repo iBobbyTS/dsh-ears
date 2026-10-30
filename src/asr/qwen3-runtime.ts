@@ -176,12 +176,13 @@ export class Qwen3Runtime {
     return this.state(model)
   }
 
-  async open(model: string, ttlMinutes = QWEN3_DEFAULT_TTL_MINUTES): Promise<string> {
+  async open(model: string, ttlMinutes = QWEN3_DEFAULT_TTL_MINUTES, context = ''): Promise<string> {
     if (!validQwen3Model(model)) throw new Error('Unknown local Qwen3-ASR model')
     this.setTTL(ttlMinutes)
     await this.ensure(model)
     const sessionId = randomUUID()
-    await this.request({ type: 'start', sessionId, chunkSizeSec: 1.0 })
+    // The worker caps the context at 1024 characters before it reaches the model prompt.
+    await this.request({ type: 'start', sessionId, chunkSizeSec: 1.0, context: context.slice(0, 1024) })
     this.active.add(sessionId)
     this.cancelIdle()
     return sessionId
@@ -471,12 +472,13 @@ export class Qwen3RealtimeAsrSession {
   constructor(
     private readonly runtime: Qwen3Runtime,
     private readonly model: string,
-    private readonly ttlMinutes: number
+    private readonly ttlMinutes: number,
+    private readonly context = ''
   ) {}
 
   async open(signal?: AbortSignal): Promise<void> {
     signal?.throwIfAborted()
-    this.sessionId = await this.runtime.open(this.model, this.ttlMinutes)
+    this.sessionId = await this.runtime.open(this.model, this.ttlMinutes, this.context)
     if (signal?.aborted) {
       this.close()
       signal.throwIfAborted()

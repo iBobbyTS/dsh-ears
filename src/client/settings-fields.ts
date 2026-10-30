@@ -1,4 +1,4 @@
-import { ASR_BACKEND_IDS, CLOUD_ASR_PROVIDER_IDS, MAX_POLISH_PROMPT_LENGTH, SETTINGS_DISPLAY_NAME_IDS, WHISPER_ACCELERATION_IDS, WHISPER_MODEL_IDS, QWEN3_MODELS, validQwen3TTL, isValidRecordingLimit } from '../config.js'
+import { ASR_BACKEND_IDS, CLOUD_ASR_PROVIDER_IDS, MAX_POLISH_PROMPT_LENGTH, MAX_QWEN3_PROMPT_LENGTH, SETTINGS_DISPLAY_NAME_IDS, WHISPER_ACCELERATION_IDS, WHISPER_MODEL_IDS, QWEN3_MODELS, validQwen3TTL, isValidRecordingLimit } from '../config.js'
 import type { EarsSettings } from '../config.js'
 import { cloudAsrFieldDefinition, cloudAsrModelField as registryCloudAsrModelField, validateCloudAsrFieldValue, type CloudAsrModelField } from '../asr/providers.js'
 import { shortcutRejectReason } from '../shortcut.js'
@@ -20,6 +20,7 @@ export function isSettingsFieldInvalid(field: FieldName, text: string): boolean 
   if (cloudField !== undefined) return !validateCloudAsrFieldValue(cloudField, text)
   if (field === 'localQwenIdleTtlMinutes') return !validQwen3TTL(Number(text))
   if (field === 'localQwenModel') return !(QWEN3_MODELS as readonly string[]).includes(text)
+  if (field === 'localQwenPrompt') return text.trim().length > MAX_QWEN3_PROMPT_LENGTH
   if (field === 'webSpeechLanguage' || field === 'localWhisperLanguage') return false
   if (field === 'asrBackend') return !(ASR_BACKEND_IDS as readonly string[]).includes(text)
   if (field === 'localWhisperModel') return !(WHISPER_MODEL_IDS as readonly string[]).includes(text)

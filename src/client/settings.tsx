@@ -254,8 +254,9 @@ export function EarsSettingsSection(props: EarsSettingsSectionProps): ReactNode 
             <TextRow label={t('language')} hint={t('asrLanguageHint')} value={state.localWhisperLanguage.text} placeholder="auto" disabled={!state.writable} invalid={state.localWhisperLanguage.invalid} onChange={(event) => props.edit('localWhisperLanguage', event.target.value)} onBlur={props.flush} />
           </> : null}
           {state.asrBackend.text === 'local-qwen3' ? <>
-            <SelectRow label={t('qwenModelLabel')} value={state.localQwenModel.text} options={QWEN3_MODELS.map((model) => [model, model] as [string, string])} disabled={!state.writable} invalid={state.localQwenModel.invalid} onChange={(value) => props.edit('localQwenModel', value)} />
+            <SelectRow label={t('qwenModelLabel')} hint={t('backendHintLocalQwen')} value={state.localQwenModel.text} options={QWEN3_MODELS.map((model) => [model, model] as [string, string])} disabled={!state.writable} invalid={state.localQwenModel.invalid} onChange={(value) => props.edit('localQwenModel', value)} />
             <TextRow label={t('qwenTtlLabel')} hint={t('qwenTtlHint')} value={state.localQwenIdleTtlMinutes.text} disabled={!state.writable} invalid={state.localQwenIdleTtlMinutes.invalid} numeric onChange={(event) => props.edit('localQwenIdleTtlMinutes', event.target.value)} onBlur={props.flush} />
+            <TextRow label={t('qwenPromptLabel')} hint={t('qwenPromptHint')} value={state.localQwenPrompt.text} placeholder={t('qwenPromptPlaceholder')} disabled={!state.writable} invalid={state.localQwenPrompt.invalid} onChange={(event) => props.edit('localQwenPrompt', event.target.value)} onBlur={props.flush} />
             <QwenModelManager remote={props.remote} model={state.localQwenModel.text} t={t} flush={props.flush} />
           </> : null}
           {state.asrBackend.text === 'cloud-openai' ? (

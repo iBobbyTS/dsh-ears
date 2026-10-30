@@ -465,7 +465,7 @@ export class PolishService extends TypertRemoteService {
         throw new EarsError(EARS_ERROR_CODES.asrServiceUnavailable, 'Realtime recognition is not selected')
       }
       if (settings.asrBackend === 'local-qwen3') {
-        session = new Qwen3RealtimeAsrSession(this.qwen3, settings.localQwenModel, settings.localQwenIdleTtlMinutes)
+        session = new Qwen3RealtimeAsrSession(this.qwen3, settings.localQwenModel, settings.localQwenIdleTtlMinutes, settings.localQwenPrompt)
       } else {
       if (!isCloudAsrRealtime(settings)) {
         throw new EarsError(EARS_ERROR_CODES.asrServiceUnavailable, 'The selected cloud ASR service does not support realtime recognition')
