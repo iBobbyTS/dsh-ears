@@ -80,6 +80,29 @@ describe('VoiceInputSession', () => {
     expect(session.getSnapshot().state).toBe('idle')
   })
 
+  it.each(['starting', 'recording', 'transcribing', 'polishing'] as const)('ends %s on submit while preserving the draft and invalidating old work', (state) => {
+    const session = new VoiceInputSession()
+    const cancel = vi.fn()
+    session.onCancelRequested(cancel)
+    session.setState(state)
+    const epoch = session.captureEpoch()
+    session.requestSubmit()
+    expect(cancel).toHaveBeenCalledExactlyOnceWith(true)
+    expect(session.isCurrentEpoch(epoch)).toBe(false)
+    expect(session.getSnapshot().state).toBe('idle')
+    session.requestSubmit()
+    expect(cancel).toHaveBeenCalledOnce()
+  })
+
+  it('distinguishes discard from preserving text on submit', () => {
+    const session = new VoiceInputSession()
+    const cancel = vi.fn()
+    session.onCancelRequested(cancel)
+    session.setState('transcribing')
+    session.requestCancel()
+    expect(cancel).toHaveBeenCalledExactlyOnceWith(false)
+  })
+
   it('dismisses recognition errors after a short delay', () => {
     vi.useFakeTimers()
     const session = new VoiceInputSession()

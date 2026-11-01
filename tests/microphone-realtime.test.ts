@@ -11,6 +11,8 @@ const hooks = vi.hoisted(() => ({
   effects: [] as Array<() => void | (() => void)>
 }))
 const captureMock = vi.hoisted(() => ({ create: vi.fn() }))
+const mediaMock = vi.hoisted(() => ({ create: vi.fn() }))
+const speechMock = vi.hoisted(() => ({ start: vi.fn(), stop: vi.fn(), abort: vi.fn() }))
 vi.mock('react', () => ({
   useRef: (initial: unknown) => {
     const index = hooks.index++
@@ -25,6 +27,19 @@ vi.mock('@deepseek-ai/dsh-client-ui-primitives', () => ({ Tooltip: () => null })
 vi.mock('../src/client/realtime-audio-capture.js', () => ({
   RealtimeAudioCaptureSession: { create: captureMock.create },
   isRealtimeAudioCaptureAvailable: () => true
+}))
+vi.mock('../src/asr/media-recorder.js', () => ({
+  MediaRecorderSession: { create: mediaMock.create },
+  isMediaRecorderAvailable: () => true,
+  warmMicrophone: vi.fn()
+}))
+vi.mock('../src/asr/web-speech.js', () => ({
+  WebSpeechSession: class {
+    start = speechMock.start
+    stop = speechMock.stop
+    abort = speechMock.abort
+  },
+  isWebSpeechAvailable: () => true
 }))
 vi.mock('../src/client/sounds.js', () => ({
   playClick: vi.fn(), resumeSounds: vi.fn(), retainSounds: () => () => undefined
@@ -55,8 +70,35 @@ function fakeCapture() {
   }
 }
 
+// Minimal read-only composer surface used by the real submission adapter.
+class ComposerElement {
+  constructor(readonly owner: object) {}
+  closest(selector: string) { return selector === '[data-composer-card]' ? this.owner : this }
+  contains(target: unknown) { return target === this }
+  disabled = false
+  getAttribute() { return null }
+}
+
+function composerSurface(readDraft: () => string) {
+  const listeners = new Map<string, EventListener>()
+  const card = {
+    isConnected: true,
+    contains: (element: unknown) => element === editor,
+    querySelector: () => editor,
+    addEventListener: (type: string, listener: EventListener) => listeners.set(type, listener),
+    removeEventListener: (type: string) => listeners.delete(type)
+  }
+  const editor = new ComposerElement(card)
+  Object.defineProperty(editor, 'textContent', { get: readDraft })
+  const microphone = new ComposerElement(card)
+  const send = new ComposerElement(card)
+  return { microphone, gesture: (type: 'click' | 'keydown') => listeners.get(type)?.({
+    type, target: type === 'keydown' ? editor : send, key: 'Enter'
+  } as unknown as Event) }
+}
+
 type Startup = { ok: true; value: { sessionId: string } }
-function setup(backend: 'local-qwen3' | 'cloud-openai' = 'local-qwen3') {
+function setup(backend: 'local-qwen3' | 'cloud-openai' | 'web-speech' | 'local-whisper' = 'local-qwen3') {
   const startup = deferred<Startup>()
   const capture = fakeCapture()
   captureMock.create.mockResolvedValue(capture)
@@ -73,15 +115,18 @@ function setup(backend: 'local-qwen3' | 'cloud-openai' = 'local-qwen3') {
     startRealtime: vi.fn((_signal: AbortSignal) => startup.promise),
     cancelRealtime: vi.fn(async () => ({ ok: true, value: { cancelled: true } })),
     finishRealtime: vi.fn(async () => ({ ok: true, value: { status: 'ok', text: 'speech' } })),
-    sendRealtimeAudio: vi.fn(async () => ({ ok: true, value: { text: '', final: false } }))
+    sendRealtimeAudio: vi.fn(async () => ({ ok: true, value: { text: '', final: false } })),
+    transcribe: vi.fn(),
+    polish: vi.fn()
   }
   let draft = ''
   let revision = 0
   const inputActions = {
     captureInsertion: () => ({ start: draft.length, end: draft.length, draftRev: revision }),
     insertText: vi.fn((text: string) => { draft = text; revision++; return true }),
-    setDraft: vi.fn((text: string) => { draft = text })
+    setDraft: vi.fn((text: string) => { draft = text; revision++ })
   }
+  const composer = composerSurface(() => draft)
   const cleanups: Array<() => void> = []
   const props = {
     useInput: (select: (state: InputState) => unknown) => select({ draft } as InputState),
@@ -96,6 +141,8 @@ function setup(backend: 'local-qwen3' | 'cloud-openai' = 'local-qwen3') {
     hooks.index = 0
     const tree = MicrophoneButton(props)
     if (hooks.initial) {
+      const button = tree.props.children as { ref: { current: unknown } }
+      button.ref.current = composer.microphone
       hooks.initial = false
       for (const effect of hooks.effects) {
         const cleanup = effect()
@@ -108,7 +155,7 @@ function setup(backend: 'local-qwen3' | 'cloud-openai' = 'local-qwen3') {
     for (const cleanup of cleanups.splice(0)) cleanup()
     voiceSession.dispose()
   }
-  return { startup, capture, remote, voiceSession, render, unmount, inputActions, draft: () => draft }
+  return { startup, capture, remote, voiceSession, render, unmount, inputActions, composer, draft: () => draft }
 }
 
 beforeEach(() => {
@@ -118,7 +165,12 @@ beforeEach(() => {
   hooks.initial = true
   hooks.effects = []
   captureMock.create.mockReset()
+  mediaMock.create.mockReset()
+  speechMock.start.mockClear()
+  speechMock.stop.mockClear()
+  speechMock.abort.mockClear()
   vi.stubGlobal('window', { addEventListener: vi.fn(), removeEventListener: vi.fn() })
+  vi.stubGlobal('Element', ComposerElement)
 })
 afterEach(() => {
   vi.clearAllTimers()
@@ -209,6 +261,90 @@ describe('microphone realtime startup lifecycle', () => {
     app.unmount()
   })
 
+  it.each(['click', 'keydown'] as const)('ends voice through the actual %s submission observer after the host sends', async (gesture) => {
+    const app = setup()
+    app.render().props.onClick()
+    app.startup.resolve({ ok: true, value: { sessionId: 'submitted' } })
+    await settle()
+    app.remote.sendRealtimeAudio.mockResolvedValue({ ok: true, value: { text: 'spoken message', final: false } })
+    await app.capture.start.mock.calls[0]![0]('audio')
+    expect(app.draft()).toBe('spoken message')
+    app.composer.gesture(gesture)
+    const sent = app.draft() // The host owns message capture and delivery.
+    app.inputActions.setDraft('')
+    await settle()
+    expect(sent).toBe('spoken message')
+    expect(app.draft()).toBe('')
+    expect(app.capture.abort).toHaveBeenCalledOnce()
+    expect(app.remote.cancelRealtime).toHaveBeenCalledWith('submitted')
+    expect(app.voiceSession.getSnapshot().state).toBe('idle')
+    expect(app.remote.finishRealtime).not.toHaveBeenCalled()
+    app.unmount()
+  })
+
+  it('ends capture on send during cold start and cancels the late remote session', async () => {
+    const app = setup()
+    app.render().props.onClick()
+    await settle()
+    app.voiceSession.requestSubmit()
+    expect(app.capture.abort).toHaveBeenCalledOnce()
+    expect(app.voiceSession.getSnapshot().state).toBe('idle')
+    expect(app.remote.startRealtime.mock.calls[0]?.[0].aborted).toBe(true)
+    app.startup.resolve({ ok: true, value: { sessionId: 'sent-during-load' } })
+    await settle()
+    expect(app.remote.cancelRealtime).toHaveBeenCalledWith('sent-during-load')
+    expect(app.remote.finishRealtime).not.toHaveBeenCalled()
+    expect(app.inputActions.insertText).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(2_000)
+    expect(app.capture.stop).not.toHaveBeenCalled()
+    app.unmount()
+  })
+
+  it('preserves current Qwen text on send and ignores late streaming results', async () => {
+    const app = setup()
+    app.render().props.onClick()
+    app.startup.resolve({ ok: true, value: { sessionId: 'sent-stream' } })
+    await settle()
+    const send = app.capture.start.mock.calls[0]![0]
+    app.remote.sendRealtimeAudio.mockResolvedValue({ ok: true, value: { text: 'current speech', final: false } })
+    await send('first')
+    expect(app.draft()).toBe('current speech')
+    const late = deferred<{ ok: true; value: { text: string; final: boolean } }>()
+    app.remote.sendRealtimeAudio.mockReturnValueOnce(late.promise)
+    const pending = send('last')
+    app.voiceSession.requestSubmit()
+    expect(app.draft()).toBe('current speech')
+    expect(app.inputActions.insertText).toHaveBeenCalledOnce()
+    app.inputActions.setDraft('') // The host consumes the sent document.
+    late.resolve({ ok: true, value: { text: 'late speech', final: true } })
+    await pending
+    expect(app.draft()).toBe('')
+    expect(app.inputActions.insertText).toHaveBeenCalledOnce()
+    expect(app.capture.abort).toHaveBeenCalledOnce()
+    expect(app.remote.cancelRealtime).toHaveBeenCalledWith('sent-stream')
+    expect(app.remote.finishRealtime).not.toHaveBeenCalled()
+    expect(app.voiceSession.getSnapshot().state).toBe('idle')
+    app.unmount()
+  })
+
+  it('ignores a final result arriving after sending while stopped recognition is pending', async () => {
+    const app = setup()
+    const finish = deferred<{ ok: true; value: { status: 'ok'; text: string } }>()
+    app.remote.finishRealtime.mockReturnValueOnce(finish.promise)
+    app.render().props.onClick()
+    app.startup.resolve({ ok: true, value: { sessionId: 'finishing' } })
+    await settle()
+    app.render().props.onClick()
+    await settle()
+    expect(app.remote.finishRealtime).toHaveBeenCalledOnce()
+    app.voiceSession.requestSubmit()
+    finish.resolve({ ok: true, value: { status: 'ok', text: 'late final' } })
+    await settle()
+    expect(app.draft()).toBe('')
+    expect(app.voiceSession.getSnapshot().state).toBe('idle')
+    app.unmount()
+  })
+
   it('unmounts during loading and cancels the late remote session', async () => {
     const app = setup()
     app.render().props.onClick()
@@ -233,6 +369,85 @@ describe('microphone realtime startup lifecycle', () => {
     await vi.advanceTimersByTimeAsync(2_000)
     expect(app.capture.stop).not.toHaveBeenCalled()
     expect(app.remote.finishRealtime).not.toHaveBeenCalled()
+    app.unmount()
+  })
+
+  it('aborts Web Speech rather than committing another transcript on send', () => {
+    const app = setup('web-speech')
+    app.render().props.onClick()
+    expect(speechMock.start).toHaveBeenCalledOnce()
+    app.voiceSession.requestSubmit()
+    expect(speechMock.abort).toHaveBeenCalledOnce()
+    expect(speechMock.stop).not.toHaveBeenCalled()
+    expect(app.voiceSession.getSnapshot().state).toBe('idle')
+    app.unmount()
+  })
+
+  it('aborts active file recording on send without transcribing it', async () => {
+    const app = setup('local-whisper')
+    const media = fakeCapture()
+    mediaMock.create.mockResolvedValue(media)
+    app.render().props.onClick()
+    await settle()
+    expect(media.start).toHaveBeenCalledOnce()
+    app.voiceSession.requestSubmit()
+    expect(media.abort).toHaveBeenCalledOnce()
+    expect(media.stop).not.toHaveBeenCalled()
+    expect(app.remote.transcribe).not.toHaveBeenCalled()
+    expect(app.voiceSession.getSnapshot().state).toBe('idle')
+    app.unmount()
+  })
+
+  it('discards a permission-pending file recording after send', async () => {
+    const app = setup('local-whisper')
+    const media = fakeCapture()
+    const acquisition = deferred<ReturnType<typeof fakeCapture>>()
+    mediaMock.create.mockReturnValue(acquisition.promise)
+    app.render().props.onClick()
+    app.voiceSession.requestSubmit()
+    acquisition.resolve(media)
+    await settle()
+    expect(media.start).not.toHaveBeenCalled()
+    expect(media.abort).toHaveBeenCalledOnce()
+    expect(app.voiceSession.getSnapshot().state).toBe('idle')
+    app.unmount()
+  })
+
+  it('does not restart transcription when file capture finishes stopping after send', async () => {
+    const app = setup('local-whisper')
+    const stopped = deferred<{ base64: string; mimeType: string }>()
+    const media = { ...fakeCapture(), stop: vi.fn(() => stopped.promise) }
+    mediaMock.create.mockResolvedValue(media)
+    app.render().props.onClick()
+    await settle()
+    app.render().props.onClick()
+    expect(media.stop).toHaveBeenCalledOnce()
+    app.voiceSession.requestSubmit()
+    stopped.resolve({ base64: 'AAAA', mimeType: 'audio/webm' })
+    await settle()
+    expect(app.remote.transcribe).not.toHaveBeenCalled()
+    expect(app.voiceSession.getSnapshot().state).toBe('idle')
+    app.unmount()
+  })
+
+  it('cancels pending polish on send and keeps the next draft untouched', async () => {
+    const app = setup('cloud-openai')
+    const polish = deferred<{ ok: true; value: { status: 'ok'; text: string } }>()
+    app.remote.polish.mockReturnValueOnce(polish.promise)
+    app.render().props.onClick()
+    app.startup.resolve({ ok: true, value: { sessionId: 'polishing' } })
+    await settle()
+    app.render().props.onClick()
+    await settle()
+    expect(app.voiceSession.getSnapshot().state).toBe('polishing')
+    expect(app.draft()).toBe('speech')
+    app.voiceSession.requestSubmit()
+    expect(app.remote.polish.mock.calls[0]?.[4].aborted).toBe(true)
+    app.inputActions.setDraft('next message')
+    polish.resolve({ ok: true, value: { status: 'ok', text: 'late polished text' } })
+    await settle()
+    expect(app.draft()).toBe('next message')
+    expect(app.voiceSession.getSnapshot().state).toBe('idle')
     app.unmount()
   })
 

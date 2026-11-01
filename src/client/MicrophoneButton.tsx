@@ -15,6 +15,7 @@ import styles from './MicrophoneButton.module.css'
 import { base64ByteLength, classifyVoiceFailure, failureMessage, isTrivialRecording, remoteFailureDetail, remoteFailureParams } from './voice-error.js'
 import { commitTranscript, updateDraft } from './voice-flow.js'
 import { VoiceDraftWriter } from './voice-draft-writer.js'
+import { observeComposerSubmission } from './composer-submit.js'
 import { matchesShortcut } from '../shortcut.js'
 import { fallbackTranslate, localizedErrorText, type Translate } from './settings-locale.js'
 import { resolveCaptureBackend, isSupersededMediaCapture, reuseInFlightPromise, shouldAbandonPendingCapture, webSpeechCommittedTranscript } from './voice-capture.js'
@@ -65,6 +66,7 @@ export function MicrophoneButton({ useInput, inputActions, remote, useEarsSettin
   const recordingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const stopRecordingRef = useRef<(() => void | Promise<void>) | null>(null)
   const draft = useInput((value) => value.draft)
+  const inputPhase = useInput((value) => value.phase)
   const actionsRef = useRef(inputActions)
   const latestDraftRef = useRef(draft)
   const uiLocale = useUiLocale?.() ?? 'zh'
@@ -119,7 +121,13 @@ export function MicrophoneButton({ useInput, inputActions, remote, useEarsSettin
     const stop = voiceSession.onStopRequested(() => {
       void stopRecordingRef.current?.()
     })
-    const cancel = voiceSession.onCancelRequested(() => {
+    const cancel = voiceSession.onCancelRequested((preserveDraft) => {
+      mediaStartGenerationRef.current += 1
+      speechSessionRef.current?.abort()
+      speechSessionRef.current = null
+      mediaSessionRef.current?.abort()
+      mediaSessionRef.current = null
+      mediaBackendRef.current = null
       transcribeAbortRef.current?.abort()
       polishAbortRef.current?.abort()
       mediaStartCancelledRef.current = true
@@ -135,7 +143,9 @@ export function MicrophoneButton({ useInput, inputActions, remote, useEarsSettin
       const sessionId = realtimeRemoteSessionIdRef.current
       realtimeRemoteSessionIdRef.current = null
       if (sessionId !== null) void remote.cancelRealtime(sessionId)
-      realtimeWriterRef.current?.cancel()
+      const writer = realtimeWriterRef.current
+      if (preserveDraft) writer?.finalize(writer.text)
+      else writer?.cancel()
       realtimeWriterRef.current = null
     })
     return () => {
@@ -143,6 +153,17 @@ export function MicrophoneButton({ useInput, inputActions, remote, useEarsSettin
       cancel()
     }
   }, [voiceSession])
+
+  useEffect(() => {
+    const button = buttonRef.current
+    if (button === null) return
+    return observeComposerSubmission(button, inputActions, () => voiceSession.requestSubmit())
+  }, [inputActions, voiceSession])
+
+  useEffect(() => {
+    // Slash commands lock the input before consuming its document.
+    if (inputPhase === 'adjudicating' || inputPhase === 'submitting') voiceSession.requestSubmit()
+  }, [inputPhase, voiceSession])
 
   useEffect(() => {
     mountedRef.current = true
@@ -544,7 +565,7 @@ export function MicrophoneButton({ useInput, inputActions, remote, useEarsSettin
     transcribeAbortRef.current = controller
     try {
       const audio = await session.stop()
-      if (!mountedRef.current) return
+      if (!mountedRef.current || controller.signal.aborted) return
       if (mediaBackend === null) {
         applyVoiceFailure(voiceSession, 'asr', new Error('Media recording backend snapshot is missing'))
         return

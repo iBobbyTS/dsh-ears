@@ -42,7 +42,7 @@ export class VoiceInputSession {
   private snapshot: VoiceInputSessionSnapshot = { state: 'idle', levels: [], detail: '' }
   private readonly listeners = new Set<Listener>()
   private readonly stopListeners = new Set<StopListener>()
-  private readonly cancelListeners = new Set<StopListener>()
+  private readonly cancelListeners = new Set<(preserveDraft: boolean) => void>()
   private epoch = 0
   private errorTimer: ReturnType<typeof setTimeout> | undefined
 
@@ -66,7 +66,7 @@ export class VoiceInputSession {
     return () => this.stopListeners.delete(listener)
   }
 
-  readonly onCancelRequested = (listener: StopListener): (() => void) => {
+  readonly onCancelRequested = (listener: (preserveDraft: boolean) => void): (() => void) => {
     this.cancelListeners.add(listener)
     return () => this.cancelListeners.delete(listener)
   }
@@ -107,9 +107,20 @@ export class VoiceInputSession {
 
   requestCancel(): void {
     if (!DISCARDABLE_STATES.has(this.snapshot.state)) return
+    this.cancel(false)
+  }
+
+  /** Sending owns the current draft; end voice work without retracting text. */
+  requestSubmit(): void {
+    const state = this.snapshot.state
+    if (state !== 'starting' && state !== 'recording' && !DISCARDABLE_STATES.has(state)) return
+    this.cancel(true)
+  }
+
+  private cancel(preserveDraft: boolean): void {
     this.epoch += 1
-    for (const listener of this.cancelListeners) listener()
-    if (DISCARDABLE_STATES.has(this.snapshot.state)) this.setState('idle')
+    for (const listener of this.cancelListeners) listener(preserveDraft)
+    this.setState('idle')
   }
 
   dispose(): void {
