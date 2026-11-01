@@ -69,6 +69,12 @@ The browser records a bounded one-shot payload, downmixes and resamples it to mo
 
 Model availability uses `dshEars/getWhisperModelState` and `dshEars/downloadWhisperModel`. A model file counts as downloaded only when a `.dsh-ears-done` completion marker sits beside it (D-020). `transcribe()` rejects an unavailable native runtime or unmarked model instead of auto-downloading inside the 120-second transcription timeout. The native runtime is disposed with the plugin scope. The selected Default/Vulkan/CUDA variant is fixed after first native load, so changing acceleration requires a dsh Host restart.
 
+### Local Qwen3-ASR
+
+The Host owns the MLX worker and model lifecycle. The browser starts mono 16 kHz PCM16 capture before waiting for a local Qwen realtime session to open. Model readiness gates the existing ordered audio queue outside its per-packet delivery timeout, so cold-start audio is preserved and drains before newer live audio. The recording limit includes model-loading time.
+
+Stopping during startup immediately releases the microphone, then waits for readiness and queued audio delivery before finishing recognition. Cancellation or unmount discards queued audio and cancels any late-created remote session. Cloud realtime backends retain connect-before-capture startup.
+
 ### Cloud ASR
 
 A Host-side registry (`src/asr/providers.ts`) owns Groq, Deepgram, Bailian, Tencent Cloud, MiMo, SiliconFlow, Volcengine, and Custom:

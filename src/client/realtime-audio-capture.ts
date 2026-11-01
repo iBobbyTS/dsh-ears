@@ -16,7 +16,7 @@ export function isRealtimeAudioCaptureAvailable(): boolean {
 
 export interface RealtimeAudioCapture {
   createLevelMonitor(onLevel: (level: number) => void): AudioLevelMonitor
-  start(onChunk: (audioBase64: string) => Promise<void>): void
+  start(onChunk: (audioBase64: string) => Promise<void>, ready?: Promise<void>): void
   stop(): Promise<void>
   abort(): void
 }
@@ -36,6 +36,7 @@ export class RealtimeAudioCaptureSession implements RealtimeAudioCapture {
   private deliveryGeneration = 0
   private closed = false
   private failure: unknown
+  private releaseDeliveryWait: (() => void) | undefined
 
   private constructor(stream: MediaStream, context: AudioContextLike) {
     this.stream = stream
@@ -78,8 +79,16 @@ export class RealtimeAudioCaptureSession implements RealtimeAudioCapture {
     return AudioLevelMonitor.fromStream(this.stream, onLevel)
   }
 
-  start(onChunk: (audioBase64: string) => Promise<void>): void {
+  start(onChunk: (audioBase64: string) => Promise<void>, ready?: Promise<void>): void {
     if (this.closed) throw new Error('Realtime audio capture is no longer active')
+    // Gate the ordered queue, not the callback: model startup must not consume
+    // the transport's per-packet timeout. Capture continues behind this barrier.
+    if (ready !== undefined) {
+      const cancelled = new Promise<void>((resolve) => { this.releaseDeliveryWait = resolve })
+      this.queue = Promise.race([ready, cancelled]).catch((error) => {
+        this.failure ??= error
+      }).finally(() => { this.releaseDeliveryWait = undefined })
+    }
     this.onChunk = onChunk
   }
 
@@ -107,6 +116,7 @@ export class RealtimeAudioCaptureSession implements RealtimeAudioCapture {
 
   abort(): void {
     this.deliveryGeneration += 1
+    this.releaseDeliveryWait?.()
     if (this.closed) return
     this.closed = true
     this.onChunk = undefined

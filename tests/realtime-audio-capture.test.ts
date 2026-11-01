@@ -301,6 +301,119 @@ describe('RealtimeAudioCaptureSession', () => {
     }
   })
 
+  it('buffers beyond the delivery timeout and drains old and new PCM in order', async () => {
+    vi.useFakeTimers()
+    try {
+      const stream = new FakeStream()
+      const context = new FakeAudioContext()
+      vi.stubGlobal('navigator', { mediaDevices: { getUserMedia: vi.fn(async () => stream) } })
+      vi.stubGlobal('AudioContext', class extends FakeAudioContext {
+        constructor() { super(); Object.assign(this, context) }
+      })
+      let makeReady!: () => void
+      const ready = new Promise<void>((resolve) => { makeReady = resolve })
+      let finishFirst!: () => void
+      const firstDelivery = new Promise<void>((resolve) => { finishFirst = resolve })
+      const chunks: string[] = []
+      const session = await RealtimeAudioCaptureSession.create()
+      session.start(async (chunk) => {
+        chunks.push(chunk)
+        if (chunks.length === 1) await firstDelivery
+      }, ready)
+      emitAudio(context, samplesOf(640, 0.25))
+      emitAudio(context, samplesOf(640, -0.25))
+      await vi.advanceTimersByTimeAsync(10_000)
+      expect(chunks).toEqual([])
+      makeReady()
+      await vi.advanceTimersByTimeAsync(0)
+      expect(chunks).toHaveLength(1)
+      // Continue capturing while the historical audio is being delivered.
+      emitAudio(context, samplesOf(640, 0.5))
+      emitAudio(context, [-1, 1])
+      const stopping = session.stop()
+      expect(stream.track.stop).toHaveBeenCalledOnce()
+      finishFirst()
+      await stopping
+      expect(chunks.map((chunk) => decodePcm16(chunk))).toEqual([
+        samplesOf(640, 8_192), samplesOf(640, -8_192), samplesOf(640, 16_384), [-32_768, 32_767]
+      ])
+      expect(context.close).toHaveBeenCalledOnce()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('stops the microphone before readiness but preserves queued and partial audio', async () => {
+    const stream = new FakeStream()
+    const context = new FakeAudioContext()
+    vi.stubGlobal('navigator', { mediaDevices: { getUserMedia: vi.fn(async () => stream) } })
+    vi.stubGlobal('AudioContext', class extends FakeAudioContext {
+      constructor() { super(); Object.assign(this, context) }
+    })
+    let makeReady!: () => void
+    const ready = new Promise<void>((resolve) => { makeReady = resolve })
+    const chunks: string[] = []
+    const session = await RealtimeAudioCaptureSession.create()
+    session.start(async (chunk) => { chunks.push(chunk) }, ready)
+    emitAudio(context, samplesOf(640, 0.5))
+    emitAudio(context, [1, -1])
+    let stopped = false
+    const stopping = session.stop().then(() => { stopped = true })
+    await Promise.resolve()
+    expect(stream.track.stop).toHaveBeenCalledOnce()
+    expect(chunks).toEqual([])
+    expect(stopped).toBe(false)
+    makeReady()
+    await stopping
+    expect(chunks.map((chunk) => decodePcm16(chunk))).toEqual([samplesOf(640, 16_384), [32_767, -32_768]])
+  })
+
+  it('releases a pending stop on abort without waiting for model startup', async () => {
+    const stream = new FakeStream()
+    const context = new FakeAudioContext()
+    vi.stubGlobal('navigator', { mediaDevices: { getUserMedia: vi.fn(async () => stream) } })
+    vi.stubGlobal('AudioContext', class extends FakeAudioContext {
+      constructor() { super(); Object.assign(this, context) }
+    })
+    const send = vi.fn(async () => undefined)
+    const session = await RealtimeAudioCaptureSession.create()
+    let rejectReady!: (error: Error) => void
+    const ready = new Promise<void>((_resolve, reject) => { rejectReady = reject })
+    session.start(send, ready)
+    emitAudio(context, samplesOf(640, 1))
+    emitAudio(context, [-1])
+    const stopping = session.stop()
+    session.abort()
+    await stopping
+    rejectReady(new Error('Late startup failure'))
+    await Promise.resolve()
+    expect(send).not.toHaveBeenCalled()
+    expect(stream.track.stop).toHaveBeenCalledOnce()
+    expect(context.close).toHaveBeenCalledOnce()
+  })
+
+  it('discards buffered audio if startup fails and propagates the failure', async () => {
+    const stream = new FakeStream()
+    const context = new FakeAudioContext()
+    vi.stubGlobal('navigator', { mediaDevices: { getUserMedia: vi.fn(async () => stream) } })
+    vi.stubGlobal('AudioContext', class extends FakeAudioContext {
+      constructor() { super(); Object.assign(this, context) }
+    })
+    let fail!: (error: Error) => void
+    const ready = new Promise<void>((_resolve, reject) => { fail = reject })
+    const send = vi.fn(async () => undefined)
+    const session = await RealtimeAudioCaptureSession.create()
+    session.start(send, ready)
+    emitAudio(context, samplesOf(640, 1))
+    emitAudio(context, [-1])
+    const rejection = expect(session.stop()).rejects.toThrow('Model failed to load')
+    fail(new Error('Model failed to load'))
+    await rejection
+    expect(send).not.toHaveBeenCalled()
+    expect(stream.track.stop).toHaveBeenCalledOnce()
+    expect(context.close).toHaveBeenCalledOnce()
+  })
+
   it('propagates a chunk delivery error after cleaning up resources', async () => {
     const stream = new FakeStream()
     const context = new FakeAudioContext()
