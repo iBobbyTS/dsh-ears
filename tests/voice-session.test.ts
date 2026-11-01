@@ -86,11 +86,11 @@ describe('VoiceInputSession', () => {
     session.onCancelRequested(cancel)
     session.setState(state)
     const epoch = session.captureEpoch()
-    session.requestSubmit()
+    session.requestEnd()
     expect(cancel).toHaveBeenCalledExactlyOnceWith(true)
     expect(session.isCurrentEpoch(epoch)).toBe(false)
     expect(session.getSnapshot().state).toBe('idle')
-    session.requestSubmit()
+    session.requestEnd()
     expect(cancel).toHaveBeenCalledOnce()
   })
 

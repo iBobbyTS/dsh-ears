@@ -92,17 +92,42 @@ export function MicrophoneButton({ useInput, inputActions, remote, useEarsSettin
     // The hotkey runs on window CAPTURE so it outranks text input: editor
     // keydown handlers (which bubble and may stopPropagation/preventDefault)
     // never see a matched combination, so pressing the shortcut inside the
-    // composer cannot be swallowed by the input layer. When the chord does not
-    // match (or the shortcut is disabled/gated), the event is left untouched.
+    // composer cannot be swallowed by the input layer. Escape independently
+    // ends active voice work before Agent interruption; other keys are left
+    // untouched when the configurable chord does not match or is disabled.
+    let composing = false
+    let compositionEndsAt = 0
+    const onCompositionStart = () => { composing = true }
+    const onCompositionEnd = () => {
+      composing = false
+      // Some browsers end composition before dispatching its confirming key.
+      compositionEndsAt = Date.now() + 10
+    }
+    const onBlur = () => {
+      composing = false
+      compositionEndsAt = 0
+    }
     const onKeyDown = (event: KeyboardEvent) => {
+      if (event.isComposing || event.keyCode === 229 || composing || Date.now() < compositionEndsAt || event.repeat) return
+      const element = buttonRef.current
+      if (event.key === 'Escape' && !event.ctrlKey && !event.altKey && !event.shiftKey && !event.metaKey) {
+        const voiceState = voiceSession.getSnapshot().state
+        const hasVoiceTask = voiceState === 'starting' || voiceState === 'recording' || voiceState === 'transcribing' || voiceState === 'polishing'
+        if (hasVoiceTask && document.visibilityState === 'visible' && element !== null && element.offsetParent !== null) {
+          event.preventDefault()
+          // Agent interruption observes window BUBBLE. Consume this occurrence
+          // in capture, including other listeners on the same window target.
+          event.stopImmediatePropagation()
+          voiceSession.requestEnd()
+          return
+        }
+      }
       const current = settingsRef.current
       if (current.voiceShortcutEnabled === false) return
-      if (event.isComposing || event.repeat) return
       if (!matchesShortcut(current.voiceShortcut, event)) return
       const target = event.target
       if (target instanceof Element && target.closest('[role="dialog"]') !== null) return
       if (document.visibilityState !== 'visible') return
-      const element = buttonRef.current
       if (element === null || element.offsetParent === null) return
       event.preventDefault()
       event.stopPropagation()
@@ -113,8 +138,16 @@ export function MicrophoneButton({ useInput, inputActions, remote, useEarsSettin
       toggleRef.current?.()
     }
     window.addEventListener('keydown', onKeyDown, true)
-    return () => window.removeEventListener('keydown', onKeyDown, true)
-  }, [])
+    window.addEventListener('compositionstart', onCompositionStart, true)
+    window.addEventListener('compositionend', onCompositionEnd, true)
+    window.addEventListener('blur', onBlur)
+    return () => {
+      window.removeEventListener('keydown', onKeyDown, true)
+      window.removeEventListener('compositionstart', onCompositionStart, true)
+      window.removeEventListener('compositionend', onCompositionEnd, true)
+      window.removeEventListener('blur', onBlur)
+    }
+  }, [voiceSession])
 
   useEffect(() => {
     stopRecordingRef.current = null
@@ -157,12 +190,12 @@ export function MicrophoneButton({ useInput, inputActions, remote, useEarsSettin
   useEffect(() => {
     const button = buttonRef.current
     if (button === null) return
-    return observeComposerSubmission(button, inputActions, () => voiceSession.requestSubmit())
+    return observeComposerSubmission(button, inputActions, () => voiceSession.requestEnd())
   }, [inputActions, voiceSession])
 
   useEffect(() => {
     // Slash commands lock the input before consuming its document.
-    if (inputPhase === 'adjudicating' || inputPhase === 'submitting') voiceSession.requestSubmit()
+    if (inputPhase === 'adjudicating' || inputPhase === 'submitting') voiceSession.requestEnd()
   }, [inputPhase, voiceSession])
 
   useEffect(() => {

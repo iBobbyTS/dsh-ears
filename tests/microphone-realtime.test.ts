@@ -76,6 +76,7 @@ class ComposerElement {
   closest(selector: string) { return selector === '[data-composer-card]' ? this.owner : this }
   contains(target: unknown) { return target === this }
   disabled = false
+  offsetParent: object | null = {}
   getAttribute() { return null }
 }
 
@@ -95,6 +96,30 @@ function composerSurface(readDraft: () => string) {
   return { microphone, gesture: (type: 'click' | 'keydown') => listeners.get(type)?.({
     type, target: type === 'keydown' ? editor : send, key: 'Enter'
   } as unknown as Event) }
+}
+
+function windowKey(values: Record<string, unknown> = {}) {
+  const event = {
+    key: 'Escape', code: 'Escape', ctrlKey: false, altKey: false, shiftKey: false, metaKey: false,
+    isComposing: false, repeat: false, keyCode: 27,
+    preventDefault: vi.fn(), stopImmediatePropagation: vi.fn(), stopPropagation: vi.fn(),
+    ...values
+  }
+  const agentInterrupt = vi.fn()
+  const registered = vi.mocked(window.addEventListener).mock.calls
+  for (const [type, listener, capture] of registered) {
+    if (type !== 'keydown' || capture !== true) continue
+    ;(listener as (event: KeyboardEvent) => void)(event as unknown as KeyboardEvent)
+    if (event.stopImmediatePropagation.mock.calls.length > 0) break
+  }
+  // Match the host's fixed-input observer, which runs at window bubble.
+  if (event.stopImmediatePropagation.mock.calls.length === 0 && event.stopPropagation.mock.calls.length === 0) agentInterrupt()
+  return { event, agentInterrupt }
+}
+
+function windowComposition(type: 'compositionstart' | 'compositionend') {
+  const call = vi.mocked(window.addEventListener).mock.calls.find(([name]) => name === type)
+  ;(call?.[1] as (() => void) | undefined)?.()
 }
 
 type Startup = { ok: true; value: { sessionId: string } }
@@ -155,7 +180,7 @@ function setup(backend: 'local-qwen3' | 'cloud-openai' | 'web-speech' | 'local-w
     for (const cleanup of cleanups.splice(0)) cleanup()
     voiceSession.dispose()
   }
-  return { startup, capture, remote, voiceSession, render, unmount, inputActions, composer, draft: () => draft }
+  return { startup, capture, remote, voiceSession, render, unmount, inputActions, composer, settings, draft: () => draft }
 }
 
 beforeEach(() => {
@@ -171,11 +196,125 @@ beforeEach(() => {
   speechMock.abort.mockClear()
   vi.stubGlobal('window', { addEventListener: vi.fn(), removeEventListener: vi.fn() })
   vi.stubGlobal('Element', ComposerElement)
+  vi.stubGlobal('document', { visibilityState: 'visible' })
 })
 afterEach(() => {
   vi.clearAllTimers()
   vi.useRealTimers()
   vi.unstubAllGlobals()
+})
+
+describe('voice Escape priority', () => {
+  it.each(['starting', 'recording', 'transcribing', 'polishing'] as const)('ends %s before the agent interrupt observer', async (state) => {
+    const app = setup()
+    app.render().props.onClick()
+    await settle()
+    app.voiceSession.setState(state)
+    const { event, agentInterrupt } = windowKey()
+    expect(event.preventDefault).toHaveBeenCalledOnce()
+    expect(event.stopImmediatePropagation).toHaveBeenCalledOnce()
+    expect(agentInterrupt).not.toHaveBeenCalled()
+    expect(app.capture.abort).toHaveBeenCalledOnce()
+    expect(app.voiceSession.getSnapshot().state).toBe('idle')
+    app.startup.resolve({ ok: true, value: { sessionId: 'escaped-loading' } })
+    await settle()
+    expect(app.remote.cancelRealtime).toHaveBeenCalledWith('escaped-loading')
+    expect(app.remote.finishRealtime).not.toHaveBeenCalled()
+    expect(app.draft()).toBe('')
+    app.unmount()
+  })
+
+  it('preserves the visible transcript and passes the next Escape to the host', async () => {
+    const app = setup()
+    app.render().props.onClick()
+    app.startup.resolve({ ok: true, value: { sessionId: 'escaped-stream' } })
+    await settle()
+    app.remote.sendRealtimeAudio.mockResolvedValue({ ok: true, value: { text: 'keep this draft', final: false } })
+    const send = app.capture.start.mock.calls[0]![0]
+    await send('audio')
+    const first = windowKey()
+    expect(first.agentInterrupt).not.toHaveBeenCalled()
+    expect(app.draft()).toBe('keep this draft')
+    expect(app.inputActions.insertText).toHaveBeenCalledOnce()
+    await send('late audio')
+    expect(app.inputActions.insertText).toHaveBeenCalledOnce()
+    const next = windowKey()
+    expect(next.event.preventDefault).not.toHaveBeenCalled()
+    expect(next.agentInterrupt).toHaveBeenCalledOnce()
+    expect(app.remote.finishRealtime).not.toHaveBeenCalled()
+    app.unmount()
+  })
+
+  it('works independently of the configurable voice shortcut switch', async () => {
+    const app = setup()
+    app.settings.voiceShortcutEnabled = false
+    app.render().props.onClick()
+    await settle()
+    expect(windowKey().agentInterrupt).not.toHaveBeenCalled()
+    expect(app.voiceSession.getSnapshot().state).toBe('idle')
+    app.unmount()
+  })
+
+  it.each([{ isComposing: true }, { keyCode: 229 }, { repeat: true }, { ctrlKey: true }, { metaKey: true }, { altKey: true }, { shiftKey: true }])('does not intercept a non-plain Escape %j', async (values) => {
+    const app = setup()
+    app.render().props.onClick()
+    await settle()
+    const { event } = windowKey(values)
+    expect(event.preventDefault).not.toHaveBeenCalled()
+    expect(event.stopImmediatePropagation).not.toHaveBeenCalled()
+    expect(app.voiceSession.getSnapshot().state).toBe('recording')
+    app.unmount()
+  })
+
+  it('tracks composition when the browser does not set isComposing on Escape', async () => {
+    const app = setup()
+    app.render().props.onClick()
+    await settle()
+    windowComposition('compositionstart')
+    expect(windowKey().event.preventDefault).not.toHaveBeenCalled()
+    windowComposition('compositionend')
+    expect(windowKey().event.preventDefault).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(11)
+    expect(windowKey().event.preventDefault).toHaveBeenCalledOnce()
+    expect(app.voiceSession.getSnapshot().state).toBe('idle')
+    app.unmount()
+  })
+
+  it('resets an unfinished composition when the window loses focus', async () => {
+    const app = setup()
+    app.render().props.onClick()
+    await settle()
+    windowComposition('compositionstart')
+    const blur = vi.mocked(window.addEventListener).mock.calls.find(([name]) => name === 'blur')
+    ;(blur?.[1] as (() => void) | undefined)?.()
+    expect(windowKey().event.preventDefault).toHaveBeenCalledOnce()
+    expect(app.voiceSession.getSnapshot().state).toBe('idle')
+    app.unmount()
+    expect(window.removeEventListener).toHaveBeenCalledWith('blur', blur?.[1])
+  })
+
+  it.each(['hidden', 'offscreen', 'idle'] as const)('leaves %s voice views out of Escape arbitration', async (view) => {
+    const app = setup()
+    app.render().props.onClick()
+    await settle()
+    if (view === 'hidden') vi.stubGlobal('document', { visibilityState: 'hidden' })
+    if (view === 'offscreen') app.composer.microphone.offsetParent = null
+    if (view === 'idle') app.voiceSession.setState('idle')
+    expect(windowKey().event.preventDefault).not.toHaveBeenCalled()
+    expect(app.capture.abort).not.toHaveBeenCalled()
+    app.unmount()
+  })
+
+  it('releases key and composition capture listeners on unmount', () => {
+    const app = setup()
+    app.render()
+    app.unmount()
+    for (const name of ['keydown', 'compositionstart', 'compositionend']) {
+      const registration = vi.mocked(window.addEventListener).mock.calls.find(([type]) => type === name)
+      expect(registration?.[2]).toBe(true)
+      expect(window.removeEventListener).toHaveBeenCalledWith(name, registration?.[1], true)
+    }
+  })
 })
 
 describe('microphone realtime startup lifecycle', () => {
@@ -286,7 +425,7 @@ describe('microphone realtime startup lifecycle', () => {
     const app = setup()
     app.render().props.onClick()
     await settle()
-    app.voiceSession.requestSubmit()
+    app.voiceSession.requestEnd()
     expect(app.capture.abort).toHaveBeenCalledOnce()
     expect(app.voiceSession.getSnapshot().state).toBe('idle')
     expect(app.remote.startRealtime.mock.calls[0]?.[0].aborted).toBe(true)
@@ -312,7 +451,7 @@ describe('microphone realtime startup lifecycle', () => {
     const late = deferred<{ ok: true; value: { text: string; final: boolean } }>()
     app.remote.sendRealtimeAudio.mockReturnValueOnce(late.promise)
     const pending = send('last')
-    app.voiceSession.requestSubmit()
+    app.voiceSession.requestEnd()
     expect(app.draft()).toBe('current speech')
     expect(app.inputActions.insertText).toHaveBeenCalledOnce()
     app.inputActions.setDraft('') // The host consumes the sent document.
@@ -337,7 +476,7 @@ describe('microphone realtime startup lifecycle', () => {
     app.render().props.onClick()
     await settle()
     expect(app.remote.finishRealtime).toHaveBeenCalledOnce()
-    app.voiceSession.requestSubmit()
+    app.voiceSession.requestEnd()
     finish.resolve({ ok: true, value: { status: 'ok', text: 'late final' } })
     await settle()
     expect(app.draft()).toBe('')
@@ -376,7 +515,7 @@ describe('microphone realtime startup lifecycle', () => {
     const app = setup('web-speech')
     app.render().props.onClick()
     expect(speechMock.start).toHaveBeenCalledOnce()
-    app.voiceSession.requestSubmit()
+    app.voiceSession.requestEnd()
     expect(speechMock.abort).toHaveBeenCalledOnce()
     expect(speechMock.stop).not.toHaveBeenCalled()
     expect(app.voiceSession.getSnapshot().state).toBe('idle')
@@ -390,7 +529,7 @@ describe('microphone realtime startup lifecycle', () => {
     app.render().props.onClick()
     await settle()
     expect(media.start).toHaveBeenCalledOnce()
-    app.voiceSession.requestSubmit()
+    app.voiceSession.requestEnd()
     expect(media.abort).toHaveBeenCalledOnce()
     expect(media.stop).not.toHaveBeenCalled()
     expect(app.remote.transcribe).not.toHaveBeenCalled()
@@ -404,7 +543,7 @@ describe('microphone realtime startup lifecycle', () => {
     const acquisition = deferred<ReturnType<typeof fakeCapture>>()
     mediaMock.create.mockReturnValue(acquisition.promise)
     app.render().props.onClick()
-    app.voiceSession.requestSubmit()
+    app.voiceSession.requestEnd()
     acquisition.resolve(media)
     await settle()
     expect(media.start).not.toHaveBeenCalled()
@@ -422,7 +561,7 @@ describe('microphone realtime startup lifecycle', () => {
     await settle()
     app.render().props.onClick()
     expect(media.stop).toHaveBeenCalledOnce()
-    app.voiceSession.requestSubmit()
+    app.voiceSession.requestEnd()
     stopped.resolve({ base64: 'AAAA', mimeType: 'audio/webm' })
     await settle()
     expect(app.remote.transcribe).not.toHaveBeenCalled()
@@ -441,7 +580,7 @@ describe('microphone realtime startup lifecycle', () => {
     await settle()
     expect(app.voiceSession.getSnapshot().state).toBe('polishing')
     expect(app.draft()).toBe('speech')
-    app.voiceSession.requestSubmit()
+    app.voiceSession.requestEnd()
     expect(app.remote.polish.mock.calls[0]?.[4].aborted).toBe(true)
     app.inputActions.setDraft('next message')
     polish.resolve({ ok: true, value: { status: 'ok', text: 'late polished text' } })

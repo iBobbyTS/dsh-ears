@@ -110,8 +110,8 @@ export class VoiceInputSession {
     this.cancel(false)
   }
 
-  /** Sending owns the current draft; end voice work without retracting text. */
-  requestSubmit(): void {
+  /** End voice work without sending or retracting the current draft. */
+  requestEnd(): void {
     const state = this.snapshot.state
     if (state !== 'starting' && state !== 'recording' && !DISCARDABLE_STATES.has(state)) return
     this.cancel(true)
