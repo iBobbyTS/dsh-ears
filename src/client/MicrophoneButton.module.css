@@ -60,40 +60,15 @@
 }
 
 /*
- * rc.6 renders the right list slot before the named model seat in the DOM.
- * The public data-slot topology lets the plugin restore the intended visual
- * order without relying on generated class names:
- * model → ContextMeter → microphone → send.
+ * The composer row mounts the right list slot before the named model seat, and
+ * every slot outlet is `display: contents`, so the entry root itself is the
+ * flex item. The microphone belongs at the row's trailing edge, beside send.
  *
- * Native controls after the model seat share the middle order. The final
- * primary button is moved to the last position so the microphone stays beside
- * it, even though the plugin's right-slot contribution is mounted earlier.
+ * Order only this plugin's own entry. Reordering the host anchors (or every
+ * entry they contain) drags other plugins' contributions along with it.
  */
-:global([data-slot='conversation.input.model']) {
-  order: 1;
-}
-
-:global([data-slot='conversation.input.model'] > *) {
-  order: 1;
-}
-
-:global([data-slot='conversation.input.model'] ~ *) {
-  order: 2;
-}
-
-:global([data-slot='conversation.input.right']) {
+.button {
   order: 3;
-}
-
-:global([data-slot='conversation.input.right'] > *) {
-  order: 3;
-}
-
-:global([data-slot='conversation.input.model'] ~ button:last-of-type),
-:global([data-slot='conversation.input.model'] ~ button[class*='primary']:last-of-type),
-:global([data-slot='conversation.input.model'] ~ button[class*='Primary']:last-of-type),
-:global([data-slot='conversation.input.model'] ~ button:last-child) {
-  order: 4;
 }
 
 @media (prefers-reduced-motion: reduce) {
