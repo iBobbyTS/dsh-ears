@@ -1,6 +1,6 @@
 # Architecture Decision Records
 
-Decisions are append-only. Read this status index first. A later ADR that supersedes an earlier one is the live rule; the original body is history and must not be applied as current product law.
+These ADRs preserve upstream design and release history. The status index records supersession and applicability; an accepted historical decision does not automatically become a requirement for this fork. Current development requirements belong to [AGENTS](https://github.com/iBobbyTS/dsh-ears/blob/master/AGENTS.md), with current behavior and checks in the owners linked there. Historical ADR bodies remain unchanged.
 
 ## Status index
 
@@ -11,7 +11,7 @@ Decisions are append-only. Read this status index first. A later ADR that supers
 | D-003 | First ASR milestone | Historical: M2 was Web Speech only. Whisper and cloud ASR later shipped. |
 | D-004 | LLM ownership | Accepted |
 | D-005 | Host/Client packaging | Accepted |
-| D-006 | Compatibility | Extended by D-030, D-034, D-035, D-050, and D-051. Current release-line policy is D-051. |
+| D-006 | Compatibility | Extended by D-030, D-034, D-035, D-050, and D-051. Current floor and compile-baseline decisions are D-058 and D-059; see architecture.md for this fork's current validation scope. |
 | D-007 | Deferred scope | Partially superseded. Whisper and cloud ASR shipped. Emotion UI remains deferred (D-015). |
 | D-008 | Language and public quality | Accepted. Public landing page is Chinese-first. |
 | D-009 | Release safety | Accepted. First public release authorized 2026-08-19. Later push/publish/visibility still need explicit approval. |
@@ -21,7 +21,7 @@ Decisions are append-only. Read this status index first. A later ADR that supers
 | D-013 | Remote invocation scope | Accepted |
 | D-014 | Final ASR backends | Architecture accepted. Cloud key model **reversed by D-023 / D-032** (per-provider `role('secret')`, not dsh credential-references). |
 | D-015 | Emotion deferred | Accepted |
-| D-016 | License and repository | Accepted. MIT; public GitHub `WizisCool/dsh-ears`; first npm is `0.1.0`. |
+| D-016 | License and repository | Historical upstream identity. MIT and attribution remain; current fork is `iBobbyTS/dsh-ears`. |
 | D-017 | Dedicated settings page | Accepted (live) |
 | D-018 | Recording-settings snapshot | **Open** |
 | D-019 | Whisper cache integrity | Closed by D-020 |
@@ -51,6 +51,7 @@ Decisions are append-only. Read this status index first. A later ADR that supers
 | D-043 | Deepgram cloud ASR and dual recording-file/realtime services | Accepted |
 | D-044 | Xiaomi MiMo cloud ASR with API and Token Plan access | Accepted |
 | D-045 | Local Whisper and Agent-default polish defaults | Partially superseded by D-046; polish defaults remain live |
+| D-046 | Web Speech first-run recognition default | Accepted. New or incomplete settings default to Web Speech; explicit backend choices remain unchanged. |
 | D-047 | SiliconFlow CN cloud ASR with deferred international edition | Accepted |
 | D-048 | Volcengine streaming and recording-file recognition | Accepted; implementation tracks issue #37 |
 | D-049 | dsh 0.1.2 development line | Historical development baseline; promoted and superseded by D-050. |
@@ -58,10 +59,10 @@ Decisions are append-only. Read this status index first. A later ADR that supers
 | D-051 | dsh 0.1.2-rc.1 open minimum | Accepted for dsh-ears `0.3.x`; superseded as the floor for dsh-ears `>=0.4.0` by D-056. |
 | D-052 | dsh 0.1.5-rc.1 compatibility for dsh-ears 0.3.1 | Accepted; the dsh 0.1.2 minimum is retained. Superseded as the newest certification target by D-053. |
 | D-053 | dsh 0.1.5-rc.2 compatibility for dsh-ears 0.3.2 | Accepted for 0.3.2; superseded as the newest certification target by D-055. |
-| D-054 | npm-first distribution and DSH-Store fixed-commit boundary | Accepted. npm tarballs are the supported distribution; generated `lib/` stays untracked and fixed-commit Store installation is out of scope. |
+| D-054 | npm-first distribution and DSH-Store fixed-commit boundary | Historical upstream distribution policy. This fork uses its built checkout as documented in README; generated `lib/` remains untracked. |
 | D-055 | dsh 0.1.5-rc.3 compatibility for dsh-ears 0.3.3 | Accepted for the 0.3.3 release line; rc.3 replaces rc.2 as the newest certification target with no runtime source change. |
 | D-056 | dsh 0.1.7 port, exported Config settings, and the dsh-ears 0.4.0 floor | Accepted. The settings policy stays live; D-058 supersedes its `>=0.1.7-rc.2` minimum for dsh-ears `>=0.4.1`. |
-| D-057 | Windows/desktop browser smoke waived for dsh-ears 0.4.0 | Accepted. Records a release-gate exception for the 0.4.0 line only; the gate remains in force for later releases. |
+| D-057 | Windows/desktop browser smoke waived for dsh-ears 0.4.0 | Historical upstream release gate and 0.4.0 waiver. It does not create a release gate for this fork; current checks follow AGENTS and the development guide. |
 | D-058 | dsh 0.2.0 port, desktop support, and the dsh-ears 0.4.1 dsh floor | Accepted (live compatibility and desktop policy). Supersedes D-056's `>=0.1.7-rc.2` minimum for dsh-ears `>=0.4.1`. |
 | D-059 | dsh 0.2.1 baseline for dsh-ears 0.4.2 | Accepted. Moves the compile, lockfile, and certification baseline to `0.2.1-rc.2` while keeping D-058's `>=0.2.0-rc.1` peer minimum. |
 | D-060 | Bailian upgraded-console model guidance | Accepted. Extends D-032 with synchronous-model validation and Qwen-Audio 3.1 no-word handling. |

@@ -5,9 +5,9 @@
   "icon": "./assets/icon.svg",
   "license": "MIT",
   "author": "JUNZE",
-  "homepage": "https://github.com/WizisCool/dsh-ears#readme",
+  "homepage": "https://github.com/iBobbyTS/dsh-ears#readme",
   "bugs": {
-    "url": "https://github.com/WizisCool/dsh-ears/issues"
+    "url": "https://github.com/iBobbyTS/dsh-ears/issues"
   },
   "keywords": [
     "dsh",
@@ -22,7 +22,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/WizisCool/dsh-ears.git"
+    "url": "git+https://github.com/iBobbyTS/dsh-ears.git"
   },
   "type": "module",
   "engines": {
@@ -59,7 +59,8 @@
     "CHANGELOG.md",
     "assets",
     "python/qwen3_worker.py",
-    "locale/*.json"
+    "locale/*.json",
+    "docs"
   ],
   "packageManager": "pnpm@11.19.0",
   "dsh": {

@@ -1,5 +1,5 @@
 language: en-US
-tone_instructions: Be concise. English for code, comments, and commits. Do not suggest Chinese comments.
+tone_instructions: Be concise. Follow the language and development rules in AGENTS.md.
 
 reviews:
   profile: chill
@@ -22,42 +22,11 @@ reviews:
     - "!.pi/**"
 
   path_instructions:
-    - path: "src/**"
+    - path: "**"
       instructions: >
-        Host/Client split: exports["."] is Host (Cordis), exports["./client"] is browser.
-        Never suggest moving Host secrets, process spawn, or LLM calls to the browser.
-        Respect src/remote-contract.ts strict schemas and D-036 JSON-safe rule (omit undefined, never assign undefined).
-    - path: "src/asr/**"
-      instructions: >
-        Whisper is Host-only via @fugood/whisper.node with GGML .dsh-ears-done marker (D-020).
-        No Python/Torch/FFmpeg suggestions. Cloud ASR keys are per-provider role('secret') (D-023/D-032), never in client.
-    - path: "src/polish/**"
-      instructions: >
-        Polish reuses dsh ctx.llm route {provider, model} only (D-004). Do not propose plugin-owned LLM credentials.
-    - path: "src/client/**"
-      instructions: >
-        Client uses inputActions.setDraft() with stale-result protection and per-field auto-save (D-031). No Save/Discard suggestions.
-    - path: "tests/**"
-      instructions: >
-        Focused vitest suites mirroring shipped modules. Do not demand 80% docstring coverage.
-    - path: ".agent/decisions.md"
-      instructions: >
-        Append-only ADR history. The ADR body is immutable and must not be rewritten;
-        a superseding ADR instead "marks the old status" in the status index, as
-        required by .agent/README.md. Do not review as code.
-    - path: ".agent/PLAN.md"
-      instructions: >
-        Living project-status document. Its compatibility statements track the current
-        release line and are updated in place each release, so do not ask for the
-        superseded statement to be retained alongside the new one. Do not review as code.
-    - path: ".agent/context.md"
-      instructions: >
-        Living architecture and compatibility-status document. Its compatibility
-        statements track the current release line and are updated in place each release.
-        Do not review as code.
-    - path: ".agent/**"
-      instructions: >
-        Project process, plan, and research records. Do not review as code.
+        Use AGENTS.md for development requirements and docs/README.md for current
+        architecture, development procedures, open work, and the ADR status index.
+        Historical ADR bodies are evidence rather than current policy.
 
   pre_merge_checks:
     docstrings:

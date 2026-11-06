@@ -26,8 +26,8 @@ export const TYPERT = {
             kind: 'method',
             name: 'checkForUpdate',
             signature: 'checkForUpdate(signal: AbortSignal): Promise<UpdateCheckResult>',
-            summary: 'Compare the installed version with the npm latest dist-tag.',
-            jsDoc: '/** Compare the installed version with the npm latest dist-tag. */'
+            summary: 'Compare the installed version with upstream npm metadata without offering an installation command.',
+            jsDoc: '/** Compare the installed version with upstream npm metadata without offering an installation command. */'
           },
           {
             kind: 'method',

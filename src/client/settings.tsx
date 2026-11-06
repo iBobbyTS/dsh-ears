@@ -299,7 +299,6 @@ export function EarsSettingsSection(props: EarsSettingsSectionProps): ReactNode 
 function AboutPanel({ t, loadAbout, checkForUpdate }: { t: Translate; loadAbout: () => Promise<AboutInfo | null>; checkForUpdate: () => Promise<UpdateCheckResult> }) {
   const [about, setAbout] = useState<AboutInfo | null>(null)
   const [check, setCheck] = useState<UpdateCheckResult | { status: 'idle' } | { status: 'checking' }>({ status: 'idle' })
-  const [copied, setCopied] = useState(false)
   const loadAboutRef = useRef(loadAbout)
   loadAboutRef.current = loadAbout
   useEffect(() => {
@@ -343,27 +342,12 @@ function AboutPanel({ t, loadAbout, checkForUpdate }: { t: Translate; loadAbout:
             className={styles.linkButton}
             disabled={check.status === 'checking'}
             onClick={() => {
-              setCopied(false)
               setCheck({ status: 'checking' })
               void checkForUpdate().then((result) => setCheck(result))
             }}
           >
             {check.status === 'checking' ? t('aboutChecking') : t('aboutCheckAction')}
           </button>
-          {check.status === 'update-available' ? (
-            <button
-              type="button"
-              className={styles.linkButton}
-              onClick={() => {
-                const command = check.updateCommand
-                void navigator.clipboard.writeText(command).then(() => {
-                  setCopied(true)
-                }).catch(() => undefined)
-              }}
-            >
-              {copied ? t('copied') : t('aboutCopyCommand')}
-            </button>
-          ) : null}
         </div>
       </RowField>
     </>

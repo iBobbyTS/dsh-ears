@@ -1,84 +1,20 @@
-# dsh-ears
+# dsh-ears development rules
 
-Voice-input plugin for DeepSeek Harness. The package has two faces: a Host Cordis plugin (`exports["."]`) and a browser client (`exports["./client"]`).
+## Goal and exclusions
 
-## Read first
+Provide microphone → transcription → optional DSH-model polishing → editable draft → manual send in DSH Web/Desktop. Support the configured browser, local Whisper, local Qwen3-ASR MLX, and cloud ASR backends. The user owns the draft and final send; never auto-send or silently switch backends during a recording. Emotion recognition/UI is outside the current scope.
 
-- Product scope and still-open gates: [`.agent/PLAN.md`](./.agent/PLAN.md)
-- Architecture and Host/Client boundaries: [`.agent/context.md`](./.agent/context.md)
-- Accepted, superseded, and open decisions: [`.agent/decisions.md`](./.agent/decisions.md) — read the status index before any individual ADR
-- Human setup and contribution rules: [`CONTRIBUTING.md`](./CONTRIBUTING.md)
-- Security policy: [`SECURITY.md`](./SECURITY.md)
+## Required boundaries
 
-`.agent/research/` is optional evidence behind ADRs, not required reading.
+- Host owns credentials, process/native runtimes, model downloads, cloud requests, and polishing through DSH `ctx.llm`. Browser code never receives cloud ASR keys or plugin-owned LLM credentials. Qwen's Python/MLX runtime is separate from the native-only Whisper path.
+- Scope voice work to the owning conversation. Preserve reference chips and manual edits; cancelled, stale, unmounted, or submitted voice work must not overwrite the user's draft. Keep stop/cancel available during active work.
+- Keep Remote descriptors, codecs, result schemas, and cancellation behavior aligned. Optional wire fields are absent, never explicit `undefined`. Preserve bounded requests and disposal of capture, jobs, sockets, and model workers.
+- Keep per-field settings auto-save and secret absent=keep/set/clear semantics. Source, comments, developer documents, and commits use English; human READMEs and user guides have matching Chinese and English versions. Runtime localization remains a product concern.
+- Verify consumed DSH APIs against the target source/packages. Accepted peer ranges are not validation evidence. Preserve valid unrelated work; stage explicit paths and do not commit secrets, user audio/transcripts, private logs, or machine-specific paths.
+- Install examples must load this fork's built checkout. Upstream release history and npm identity confer no publishing rights. Pushing, publishing, tags, and visibility changes require explicit user authorization.
 
-## Setup
+## Information owners and checks
 
-Node `^22.19.0 || >=24.0.0`, pnpm `11.19.0` (`packageManager`), and dsh `>=0.2.0-rc.1`. dsh-ears 0.4.3 keeps that peer minimum because dsh 0.2.0 is the line that ships the official desktop client, and it compiles against dsh `0.2.1-rc.2` while certifying both that version and `0.2.0-rc.1`. Upstream changed no API this plugin consumes across 0.1.7-rc.2 → 0.2.1-rc.2, so it carries no runtime compatibility layer for pre-0.2.0 hosts (D-058, D-059, D-060).
+[README](README.en.md) is the human entry. [Architecture](docs/architecture.md) owns current implementation detail; [development](docs/development.md) owns commands; [usage](docs/usage.en.md) owns user configuration; [open work](docs/roadmap.md) owns unresolved work. [ADRs](docs/decisions.md) preserve history: update the status index when superseding a decision, not its historical body. [SECURITY](SECURITY.md) owns data-handling and reporting policy.
 
-```sh
-pnpm install
-pnpm check
-pnpm test
-pnpm build
-dsh plugin --profile web add "$PWD"
-```
-
-On Windows, run this from PowerShell (or use `"%CD%"` in cmd — cmd does not expand `$PWD`).
-
-## Commands
-
-Scripts live in `package.json`. Use them; do not invent parallel invocations.
-
-| Script | What it does |
-| --- | --- |
-| `pnpm check` | `tsc --noEmit` |
-| `pnpm test` | `vitest run` |
-| `pnpm build` | `tsdown` plus declaration emit |
-| `pnpm dev:config` | build, write the ignored HMR patch, dump the web profile |
-| `pnpm dev:web` | build, write the ignored HMR patch, start `dsh web` |
-| `pnpm dev:watch` | `tsdown --watch` |
-
-Client-only UI changes: rebuild (or leave `dev:watch` running) and refresh the Web UI. Host, settings registration, Remote, or schema changes: restart `dsh web`, then refresh. `pnpm dev:config` writes `.dsh/cordis.patch.yml` for HMR; it must not add a second plugin loader entry.
-
-## Layout
-
-```text
-src/index.ts              Host plugin entry
-src/client/index.ts       Browser composition (slots, settings, microphone)
-src/config.ts             Shared constants and validation
-src/config-schema.ts      Host-only schemastery schema
-src/remote-contract.ts    Strict Host/Client wire schemas
-src/shortcut.ts           Shared voice-shortcut logic
-src/asr/                  Web Speech, Whisper, Groq, Deepgram, Bailian, Tencent Cloud, MiMo, custom cloud
-src/polish/               Host LLM polish
-tests/                    Vitest suites next to the shipped modules
-.agent/                   Plan, architecture, ADRs, optional research
-```
-
-## Engineering
-
-- Prefer the smallest change that completes one independently verifiable task.
-- Fix defects at the root cause; replace faulty logic with the correct logic rather than patching over it.
-- Verify dsh APIs against the [official docs](https://deepseek-harness.github.io/deepseek-harness/guide/quickstart) and the installed `@deepseek-ai/dsh-*` packages. Plugin path: [第一个插件](https://deepseek-harness.github.io/deepseek-harness/develop/basic/). Do not guess an API from memory.
-- Follow official DeepSeek Harness package shape, naming, lifecycle, and TypeScript style where they apply.
-- English for source, comments, public documentation, context, issue-ready text, and commit messages. Runtime product prompts may be Chinese when the product requires Chinese output.
-
-## Local Whisper runtime
-
-Local Whisper is Host-only and uses the bundled `@fugood/whisper.node` native dependency plus separately downloaded whisper.cpp GGML models. The browser normalizes captured audio to mono 16 kHz PCM16 WAV. Python, Torch, FFmpeg, CLI discovery, and fallback engines are out of scope. Native acceleration is selected with `default`, `vulkan`, or `cuda`; changing it after the first native load requires restarting the dsh Host.
-
-## Boundaries
-
-- Host owns credentials, process spawn, cloud calls, and Whisper. The browser never receives a cloud ASR key and never calls an LLM provider.
-- Polishing reuses dsh routes and Host `ctx.llm`. The plugin stores `{ provider, model }` plus an optional prompt, not a second LLM credential flow.
-- Emotion UI is deferred (D-015). Future cloud ASR providers need their own protocol and smoke test.
-- Do not push, publish to npm, create tags, or change repository visibility without explicit maintainer authorization.
-
-## Git and security
-
-Use explicit `git add <path...>`. Conventional Commits (`feat(client):`, `fix(host):`, `docs:`). Run the relevant check and `git diff --cached --check` before every commit. Do not mix unrelated refactors, formatting, documentation, and feature behavior.
-
-Never commit API keys, tokens, cookies, private keys, private endpoints, user data, or personal absolute paths. Examples use `YOUR_API_KEY`. If a possible secret appears in a diff, stop, remove it, and report it without publishing the value.
-
-Collaboration detail lives in [`.agent/workflow.md`](./.agent/workflow.md).
+Choose relevant `package.json` checks for the change, rebuild changed artifacts, and distinguish automated/source-contract evidence from real renderer/microphone results. Check both README languages, links, commands, and actual installation targets after documentation changes. Before commits, review staged content and run `git diff --cached --check`.

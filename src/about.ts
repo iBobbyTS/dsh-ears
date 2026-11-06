@@ -5,15 +5,10 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 export const PLUGIN_LICENSE = 'MIT'
-export const PLUGIN_REPOSITORY_URL = 'https://github.com/WizisCool/dsh-ears'
-export const PLUGIN_REPOSITORY_SLUG = '@WizisCool/dsh-ears'
+export const PLUGIN_REPOSITORY_URL = 'https://github.com/iBobbyTS/dsh-ears'
+export const PLUGIN_REPOSITORY_SLUG = '@iBobbyTS/dsh-ears'
 export const DSH_COMPATIBILITY = '>=0.2.0-rc.1'
-/**
- * `add` re-resolves `latest` from the registry and rewrites the saved range,
- * so the one command works for first install, in-range updates, and crossings
- * that `pnpm update` clamps to the existing semver range.
- */
-export const UPDATE_COMMAND = 'dsh plugin --profile web add dsh-ears'
+/** Upstream npm metadata is informational; fork updates use the checkout. */
 export const NPM_LATEST_URL = 'https://registry.npmjs.org/dsh-ears/latest'
 
 const CHECK_TIMEOUT_MS = 15_000
@@ -25,7 +20,6 @@ export type AboutInfo = {
   readonly version: string
   readonly license: string
   readonly dshCompatibility: string
-  readonly updateCommand: string
 }
 
 export type UpdateCheckStatus = 'up-to-date' | 'update-available' | 'unpublished' | 'error'
@@ -34,7 +28,6 @@ export type UpdateCheckResult = {
   readonly status: UpdateCheckStatus
   readonly installed: string
   readonly latest: string | null
-  readonly updateCommand: string
 }
 
 export function readInstalledAboutInfo(packageJsonPath = resolvePackageJsonPath()): AboutInfo {
@@ -51,8 +44,7 @@ export function readInstalledAboutInfo(packageJsonPath = resolvePackageJsonPath(
     repositorySlug: repositorySlugFromUrl(repository),
     version,
     license,
-    dshCompatibility: DSH_COMPATIBILITY,
-    updateCommand: UPDATE_COMMAND
+    dshCompatibility: DSH_COMPATIBILITY
   }
 }
 
@@ -172,13 +164,12 @@ export async function checkForPluginUpdate(options: {
   readonly signal?: AbortSignal
 } = { installed: '' }): Promise<UpdateCheckResult> {
   const installed = options.installed
-  const updateCommand = UPDATE_COMMAND
   const latest = await fetchLatestPublishedVersion(options)
-  if (latest.status === 'unpublished') return { status: 'unpublished', installed, latest: null, updateCommand }
-  if (latest.status === 'error') return { status: 'error', installed, latest: null, updateCommand }
+  if (latest.status === 'unpublished') return { status: 'unpublished', installed, latest: null }
+  if (latest.status === 'error') return { status: 'error', installed, latest: null }
   const status = interpretUpdateCheck(installed, latest.version)
-  if (status === null) return { status: 'error', installed, latest: latest.version, updateCommand }
-  return { status, installed, latest: latest.version, updateCommand }
+  if (status === null) return { status: 'error', installed, latest: latest.version }
+  return { status, installed, latest: latest.version }
 }
 
 function parseReleaseVersion(value: string): { core: number[]; prerelease?: string[] } | null {

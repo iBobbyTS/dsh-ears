@@ -253,14 +253,12 @@ export const aboutInfoSchema = z.object({
   repositorySlug: z.string(),
   version: z.string(),
   license: z.string(),
-  dshCompatibility: z.string(),
-  updateCommand: z.string()
+  dshCompatibility: z.string()
 })
 export const updateCheckResultSchema = z.object({
   status: z.enum(['up-to-date', 'update-available', 'unpublished', 'error']),
   installed: z.string(),
-  latest: z.string().nullable(),
-  updateCommand: z.string()
+  latest: z.string().nullable()
 })
 
 export type EarsSettingsPatch = Partial<EarsSettings>

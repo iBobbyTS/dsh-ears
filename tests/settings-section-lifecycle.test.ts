@@ -80,6 +80,36 @@ const cardState: EarsCardState = {
 }
 
 describe('EarsSettingsSection lifecycle', () => {
+  it.each([['English', localeEn], ['Chinese', localeZh]] as const)('keeps newer upstream versions informational in %s', (_name, dictionary) => {
+    reactMocks.useEffect.mockClear()
+    reactMocks.useState.mockReset()
+    reactMocks.useState.mockImplementation((initial) => {
+      if (initial === 'general') return ['about', vi.fn()]
+      if (initial !== null && typeof initial === 'object' && initial.status === 'idle') {
+        return [{ status: 'update-available', installed: '0.4.3', latest: '9.9.9' }, vi.fn()]
+      }
+      return [initial, vi.fn()]
+    })
+    const tree = EarsSettingsSection({
+      useEarsCard: (selector) => selector(cardState),
+      useEarsRoutes: (selector) => selector({ status: 'ready', routes: [] }),
+      useEarsReasoning: (selector) => selector({ status: 'ready', efforts: [] }),
+      useEarsWhisper: (selector) => selector({ status: 'idle', state: null }),
+      useEarsCloudModels: (selector) => selector({ status: 'ready', view: { status: 'unsupported' } }),
+      earsT: (key, params) => dictionary[key].replace(/\{(\w+)\}/g, (match, name: string) => params?.[name] === undefined ? match : String(params[name])),
+      flush: vi.fn(),
+      refreshRoutes: vi.fn(),
+      loadAbout: vi.fn(async () => null),
+      checkForUpdate: vi.fn(async () => ({ status: 'update-available' as const, installed: '0.4.3', latest: '9.9.9' }))
+    } as Parameters<typeof EarsSettingsSection>[0])
+    const elements = renderHostElements(tree)
+    const actions = elements.filter((element) => element.type === 'button' && element.props?.role !== 'tab')
+    expect(actions).toHaveLength(1)
+    expect(textContent(actions)).toBe(dictionary.aboutCheckAction)
+    expect(textContent(elements)).toContain(dictionary.aboutCheck)
+    expect(textContent(elements)).toContain('9.9.9')
+  })
+
   it('flushes pending auto-saves when the settings section unmounts', () => {
     reactMocks.useEffect.mockClear()
     reactMocks.useState.mockReset()
@@ -129,7 +159,7 @@ describe('EarsSettingsSection lifecycle', () => {
       cancelModel: vi.fn(),
       deleteModel: vi.fn(),
       loadAbout: vi.fn(async () => null),
-      checkForUpdate: vi.fn(async () => ({ status: 'unpublished' as const, installed: '0.1.0', latest: null, updateCommand: 'dsh plugin --profile web add dsh-ears' }))
+      checkForUpdate: vi.fn(async () => ({ status: 'unpublished' as const, installed: '0.1.0', latest: null }))
     })
 
     const lifecycleEffect = reactMocks.useEffect.mock.calls.find(([, dependencies]) => Array.isArray(dependencies) && dependencies.length === 0)
@@ -197,7 +227,7 @@ describe('EarsSettingsSection lifecycle', () => {
       cancelModel: vi.fn(),
       deleteModel: vi.fn(),
       loadAbout: vi.fn(async () => null),
-      checkForUpdate: vi.fn(async () => ({ status: 'unpublished' as const, installed: '0.1.0', latest: null, updateCommand: 'dsh plugin --profile web add dsh-ears' }))
+      checkForUpdate: vi.fn(async () => ({ status: 'unpublished' as const, installed: '0.1.0', latest: null }))
     })
 
     const text = textContent(renderHostElements(tree))
@@ -262,7 +292,7 @@ describe('EarsSettingsSection lifecycle', () => {
       cancelModel: vi.fn(),
       deleteModel: vi.fn(),
       loadAbout: vi.fn(async () => null),
-      checkForUpdate: vi.fn(async () => ({ status: 'unpublished' as const, installed: '0.1.0', latest: null, updateCommand: 'dsh plugin --profile web add dsh-ears' }))
+      checkForUpdate: vi.fn(async () => ({ status: 'unpublished' as const, installed: '0.1.0', latest: null }))
     })
 
     const checkingRow = renderHostElements(tree).find((element) =>

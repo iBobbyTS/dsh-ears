@@ -53,6 +53,17 @@ describe('Deepgram model UI candidates', () => {
   })
 })
 
+describe('upstream version information', () => {
+  it('keeps a failed or disposed lookup command-free', async () => {
+    const checkForUpdate = vi.fn(async () => ({ ok: false as const, error: { code: 'HOST_FAILURE', message: 'offline', details: {} } }))
+    const controller = new EarsSettingsController(createRemote({ checkForUpdate }))
+    expect(await controller.checkForUpdate()).toEqual({ status: 'error', installed: '', latest: null })
+    controller.dispose()
+    expect(await controller.checkForUpdate()).toEqual({ status: 'error', installed: '', latest: null })
+    expect(checkForUpdate).toHaveBeenCalledOnce()
+  })
+})
+
 describe('EarsSettingsController Whisper state', () => {
   it('uses the Host-provided acceleration list for the settings card', async () => {
     const view = { ...settingsViewFrom(DEFAULT_EARS_SETTINGS), localWhisperAccelerations: ['default'] }

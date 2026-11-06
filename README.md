@@ -1,205 +1,44 @@
-<p align="center">
-  <img src="./assets/banner.jpg" width="100%" alt="dsh-ears" />
-</p>
+# dsh-ears
 
-<h1 align="center">dsh-ears</h1>
+中文 · [English](README.en.md)
 
-<p align="center"><b>一款支持润色整理的 <a href="https://github.com/deepseek-ai/deepseek-harness">DeepSeek Harness</a> 语音输入插件。</b></p>
+为 DSH Web UI 和 Desktop 提供语音输入、实时转写及可选 LLM 润色；结果写入可编辑草稿，由用户手动发送。支持浏览器 Web Speech、本地 Whisper、Apple Silicon 上的本地 Qwen3-ASR MLX，以及多种云端 ASR。
 
-<p align="center">
-  简体中文 ·
-  <a href="./README.en.md">English</a>
-</p>
-
-<p align="center">
-  <a href="https://github.com/deepseek-ai/deepseek-harness"><img src="https://img.shields.io/badge/dsh-%3E%3D0.2.0--rc.1-1a73e8?style=flat-square&logo=deepseek&logoColor=white" alt="dsh >= 0.2.0-rc.1"></a>
-  <a href="https://www.npmjs.com/package/dsh-ears"><img src="https://img.shields.io/npm/v/dsh-ears?style=flat-square&logo=npm" alt="npm version"></a>
-  <!-- Download badge icon: Akar Icons, MIT, © 2020-present Arturo Wibawa — https://github.com/artcoholic/akar-icons -->
-  <a href="https://www.npmjs.com/package/dsh-ears"><img src="https://img.shields.io/npm/dt/dsh-ears?style=flat-square&logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI%2BPHBhdGggZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiIHN0cm9rZS13aWR0aD0iMiIgZD0iTTEyIDE1VjNtMCAxMmwtNC00bTQgNGw0LTRNMiAxN2wuNjIxIDIuNDg1QTIgMiAwIDAgMCA0LjU2MSAyMWgxNC44NzdhMiAyIDAgMCAwIDEuOTQtMS41MTVMMjIgMTciLz48L3N2Zz4%3D" alt="npm downloads"></a>
-  <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="MIT"></a>
-</p>
-
-https://github.com/user-attachments/assets/1363768e-a393-44bd-a008-1ce2055cac41
-
----
-
-dsh-ears 为 DeepSeek Harness 提供语音输入与 LLM 润色整理能力。支持浏览器 Web Speech、本地 Whisper 以及主流语音识别（ASR）API 服务。
-
-## 本地 Qwen3-ASR 流式输入（fork 功能分支）
-
-此分支增加 Apple Silicon macOS 上的 Qwen3-ASR MLX 有状态流式识别，可在 DSH Composer 内实时更新文字、回退修订。语音文字使用版本校验的选区写入，不会整篇重建草稿、删除引用 Chip。录音期间人工修改或提交草稿后，迟到的语音结果不会覆盖人工内容。
-
-使用方式：在「插件设置 → 识别」中选择「本地 Qwen3-ASR (MLX)」，选 1.7b-8bit（默认）或 0.6b-8bit，点击「安装 / 下载」。插件在 DSH Host 下自动创建独立 Python venv、安装固定版本 mlx-qwen3-asr、下载模型。下载完成后直接在 Composer 点击麦克风使用，不需要手动 serve、开放监听端口或维护独立服务。
-
-插件面板支持取消下载、删除权重、预加载服务、手动卸载。默认 **60 分钟空闲 TTL**（可配置 1–1440 分钟）：最后一个活动会话结束后计时，到期停止模型 Worker，释放内存，**权重文件保留在本机**，下次识别自动加载。活跃录音不会被空闲计时器终止。
-
-系统要求：macOS Apple Silicon、可发现的 Python 3.10+；首次安装必须连接 PyPI 和 Hugging Face，安装过程中可以在插件设置里取消；推理始终在本机。非 Apple Silicon 系统继续使用现有 Whisper/Web Speech/云端后端。
-
-该分支尚未经过 M4 Max 实机端到端验收。原生流式采用 Qwen3-ASR 窗口重解码 + Prefix Rollback，默认 1 秒块。如在录音中手动修改 Composer，插件将放弃之后对此段的自动写入，避免覆盖用户草稿。
-
-**从此分支安装（尚未发布 npm）：**
-
-```sh
-git clone -b feat/local-qwen3-mlx-streaming https://github.com/iBobbyTS/dsh-ears.git
-cd dsh-ears
-pnpm use:platform
-pnpm install --frozen-lockfile
-pnpm check && pnpm test && pnpm build && pnpm verify:package
-# 然后在 DSH Desktop 插件管理器选择构建后的本地目录安装
-```
+这是 [WizisCool/dsh-ears](https://github.com/WizisCool/dsh-ears) 的 fork。安装本 fork 需要从以下 checkout 构建；上游 npm 包及应用内上游 npm 版本信息不包含本 fork 的改动。
 
 ## 安装
 
-前置依赖：[DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) `>=0.2.0-rc.1`，以及 Node.js `^22.19.0 || >=24.0.0`。
-
-### 通过 npm 安装
-
-Web UI：
+需要 DSH、Node.js `^22.19.0 || >=24.0.0` 和 `package.json` 指定的 pnpm。macOS 直接运行：
 
 ```sh
-dsh plugin --profile web add dsh-ears
-```
-
-桌面端：在插件管理界面中安装。桌面端独占名为 `desktop` 的 profile，`dsh` 命令不会管理它，因此没有对应的命令行写法。dsh-ears 不需要单独的桌面端构建，两个界面加载同一个 `web` 客户端包。
-
-> **仍在使用 dsh 0.1.x？** dsh-ears `0.4.3` 要求 dsh `>=0.2.0-rc.1`，dsh 会直接拒绝在旧版本上安装。请继续使用对应的旧版本线：
->
-> ```sh
-> # dsh 0.1.2–0.1.6
-> dsh plugin --profile web add "dsh-ears@<0.4.0"
-> # dsh 0.1.7（dsh-ears 0.4.0 要求 dsh 0.1.7-rc.2 及以后）
-> dsh plugin --profile web add "dsh-ears@<0.4.1"
-> # dsh 0.1.1
-> dsh plugin --profile web add "dsh-ears@<0.3.0"
-> ```
-
-### 从源码安装
-
-```sh
-git clone https://github.com/WizisCool/dsh-ears.git
+git clone https://github.com/iBobbyTS/dsh-ears.git
 cd dsh-ears
-pnpm use:platform
-pnpm install
+pnpm install --frozen-lockfile
 pnpm build
+```
+
+Windows/WSL 首次安装或切换两者时，在安装依赖前运行 `pnpm use:platform`；**macOS 不运行该命令**。详细构建与验证见[开发指南](docs/development.md)。
+
+Desktop：在应用插件管理器中选择构建后的仓库目录。Web：从该目录运行：
+
+```sh
 dsh plugin --profile web add "$PWD"
-# Windows 的 cmd 请使用 "%CD%"；PowerShell 直接使用 $PWD
 ```
 
-`pnpm use:platform` 将 `node_modules` 切换到当前平台的 native 依赖树（Windows / Linux 各自独立），首次克隆和跨平台切换后都需要运行。
-
-安装完成后刷新 Web UI，输入框右侧会显示麦克风图标。
-
-## 更新
-
-```sh
-dsh plugin --profile web add dsh-ears
-```
-
-`add` 会从 npm 拉取最新版本，任何已装版本都可以直接运行。更新后需要重启 `dsh web` 加载新的服务端代码，再刷新 Web UI；也可以在设置页的"关于"面板检查新版本。
-
-## 卸载
-
-```sh
-dsh plugin --profile web remove dsh-ears
-```
-
-卸载后刷新 Web UI。
+Windows cmd 请使用完整路径。重启 DSH Host 并刷新页面。更新时更新本 checkout、重新构建，再通过同一入口重新安装；Desktop 的 `desktop` profile 由应用管理。
 
 ## 使用
 
-1. 点击麦克风图标，或按下 `Ctrl+Shift+Space`（可在设置页更改）
-2. 开始说话
-3. 再次按下快捷键或点击麦克风，停止录音并开始转写
-4. 开启润色后，原始转写会先写入草稿，润色完成后再更新，期间的手动编辑会被保留
-5. 检查内容后手动发送
+在设置的 dsh-ears 页面选择识别后端，点击 Composer 麦克风或按 `Ctrl+Shift+Space` 开始/停止。检查草稿后手动发送；人工修改会被保留。
 
-转写结果始终写入可编辑草稿，不会自动发送。如果所选后端尚未就绪，麦克风图标会变灰，悬停即可查看原因。
+- 本地 Qwen：要求 Apple Silicon macOS、可发现的 Python 3.10+。在识别设置中安装运行环境和模型后直接录音，无需单独启动服务器；首次下载需要 PyPI/Hugging Face 网络。
+- Whisper：在设置中下载 GGML 模型，使用内置 native runtime，无需 Python/FFmpeg。
+- Web Speech 可能由浏览器厂商远端处理；云端后端需要相应凭据。模型润色使用 DSH 已配置的模型并产生用量。
 
-## 识别后端
-
-| 后端 | 工作方式 | 需要什么 |
-| --- | --- | --- |
-| Web Speech | 浏览器实时识别 | 默认后端；Chromium 内核浏览器 |
-| 本地 Whisper | 录音结束后本地转写 | 在设置页下载 GGML 模型 |
-| [Groq](https://console.groq.com) | [Groq Whisper API](https://console.groq.com/docs/speech-text) | API key |
-| [Deepgram](https://deepgram.com) | [预录音频](https://developers.deepgram.com/docs/pre-recorded-audio)或[实时音频流](https://developers.deepgram.com/docs/live-streaming-audio) | API key、模型名（如 `nova-3`） |
-| [阿里云百炼](https://www.aliyun.com/product/bailian) | [DashScope 同步转写](https://help.aliyun.com/zh/model-studio/fun-asr-flash-recorded-speech-recognition-http-api) | API key、同步模型 ID；单次最长 300 秒 |
-| [腾讯云](https://cloud.tencent.com/product/asr) | [录音文件识别](https://cloud.tencent.com/document/api/1093/37823)或[实时语音识别](https://cloud.tencent.com/document/api/1093/48982) | AppID、SecretID、SecretKey、`engine_type` |
-| [小米 MiMo](https://mimo.mi.com) | [语音识别 API](https://mimo.mi.com/docs/zh-CN/api/audio/Speech-Recognition)，支持标准 API 或 [Token Plan](https://mimo.mi.com/docs/zh-CN/tokenplan/Token%20Plan/subscription) | API key、模型名（如 `mimo-v2.5-asr`）；Token Plan 需选择区域集群 |
-| [硅基流动 (CN)](https://siliconflow.cn) | [语音转写 API](https://api-docs.siliconflow.cn/docs/api/audio-transcriptions-post) | API key、模型名（如 `FunAudioLLM/SenseVoiceSmall`） |
-| [火山引擎](https://www.volcengine.com/product/doubao) | [录音文件识别（大模型）](https://docs.volcengine.com/docs/6561/1354868)或[单向流式语音识别](https://docs.volcengine.com/docs/6561/2628951) | API key（新版控制台 X-Api-Key）、资源 ID |
-| 自定义 OpenAI 兼容 | 发送到指定 `/audio/transcriptions` 端点 | 端点地址、API key、模型名 |
-
-> **本地 Whisper**：基于 `@fugood/whisper.node` 本地运行 whisper.cpp，无需 Python、FFmpeg 或外部依赖。支持在设置页下载管理 GGML 模型（`tiny`（默认）至 `turbo`），并可选 `default`（自动）、`vulkan` 或 `cuda` 加速。
->
-> **阿里云百炼**：升级后的控制台使用业务空间专属域名（华北2 北京为 `https://{WorkspaceId}.cn-beijing.maas.aliyuncs.com`，新加坡为 `https://{WorkspaceId}.ap-southeast-1.maas.aliyuncs.com`）。请填写该 API Host 和**同步模型 ID**（如 `qwen3-asr-flash`、`qwen-audio-3.1-asr-flash`、`fun-asr-flash-2026-06-15`），不要填控制台显示名称，也不要使用 `-filetrans`、`-streaming`、`-message`、`-realtime` 变体，这些模型走异步任务或 WebSocket 接口，dsh-ears 不支持。
->
-> **火山引擎**：仅支持新版控制台的 API Key（`X-Api-Key`）鉴权（不支持旧版 AppID + Access Token），可在[控制台 API Key 管理](https://console.volcengine.com/speech/new/setting/apikeys)页面获取。
-
-## 润色
-
-默认开启。提供方和模型都留空时使用 dsh 的默认 Agent 模型（包括默认推理设置）；也可以从 dsh 已配置的模型中选择。LLM 凭据复用 dsh 现有配置。支持设置推理强度。
-
-默认提示词会删除口头禅、修正 ASR 错字、处理自我纠正和口头列举。可在设置页自定义提示词或查看默认内容。润色失败或取消时保留原始转写。
-
-## 设置
-
-安装后在 Web UI 的设置页出现 dsh-ears 面板，分为四个标签页：
-
-| 标签页 | 可配置项 |
-| --- | --- |
-| 常规 | 设置页显示名称、语音快捷键开关与组合键、提示音开关、最长录音时间（1–600 秒，默认 120 秒） |
-| 识别 | 后端选择、语言、本地 Whisper 模型和加速方式、云服务提供方及各提供方凭据 |
-| 润色 | 开关、LLM 提供方和模型、推理强度、自定义提示词（最长 4000 字） |
-| 关于 | 版本号、许可证、dsh 兼容范围、检查更新 |
-
-## 已知限制
-
-- Web Speech 后端依赖浏览器实现，音频可能被发送到浏览器厂商的服务端处理，不是完全的本地/离线方案。
-- 百炼单次录音最长 300 秒；Qwen-Audio-3.1 对极短或静音音频可能返回“无词”，短语音输入建议使用 `qwen3-asr-flash`。
-- Deepgram Flux 系列模型需要 Listen V2 协议，当前不支持。
-- 本地 Whisper 单次音频限制 24 MB，转写超时 120 秒。
-- 加速方式（`default` / `vulkan` / `cuda`）在首次 native 加载后锁定，切换需重启 `dsh web`。
-
-## 本地开发
-
-```sh
-pnpm use:platform
-pnpm install
-dsh plugin --profile web add "$PWD"
-# Windows 的 cmd 请使用 "%CD%"；PowerShell 直接使用 $PWD
-pnpm check          # 类型检查
-pnpm test           # 运行测试
-pnpm build          # 构建
-pnpm dev:config     # 构建并生成 HMR 配置
-pnpm dev:web        # 启动 dsh web
-```
-
-开发时在另一个终端运行 `pnpm dev:watch` 实时重编译。
-
-修改前端 UI 代码只需刷新浏览器；修改服务端、设置注册、Remote 或 schema 代码需重启 `dsh web` 再刷新。
+DSH 0.2.2-rc.1 已做源码合同核对和自动化验证；这些结果不代表已完成真实 Desktop、麦克风或 M4 Max 端到端验收。
 
 ## 文档
 
-- [CHANGELOG](./CHANGELOG.md)
-- [CONTRIBUTING](./CONTRIBUTING.md)
-- [SECURITY](./SECURITY.md)
-- [LICENSE](./LICENSE)
+[使用与设置](docs/usage.zh.md) · [项目文档](docs/README.md) · [贡献](https://github.com/iBobbyTS/dsh-ears/blob/master/CONTRIBUTING.md) · [开发规范](https://github.com/iBobbyTS/dsh-ears/blob/master/AGENTS.md)
 
-## License
-
-[MIT](./LICENSE)
-
-## 友链
-
-- [LINUX DO](https://linux.do) — 新的理想型社区
-
-## Star History
-
-<a href="https://www.star-history.com/?repos=wiziscool%2Fdsh-ears&type=date&logscale=&legend=top-left">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=wiziscool/dsh-ears&type=date&theme=dark&legend=top-left" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=wiziscool/dsh-ears&type=date&legend=top-left" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=wiziscool/dsh-ears&type=date&legend=top-left" />
- </picture>
-</a>
+[历史](CHANGELOG.md) · [安全](https://github.com/iBobbyTS/dsh-ears/blob/master/SECURITY.md) · [MIT](LICENSE)

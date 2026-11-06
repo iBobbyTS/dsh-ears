@@ -7,7 +7,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        English is preferred. Check [`.agent/PLAN.md`](https://github.com/WizisCool/dsh-ears/blob/master/.agent/PLAN.md) and the [decision index](https://github.com/WizisCool/dsh-ears/blob/master/.agent/decisions.md) first.
+        English is preferred. Check [open work](https://github.com/iBobbyTS/dsh-ears/blob/master/docs/roadmap.md) and the [decision index](https://github.com/iBobbyTS/dsh-ears/blob/master/docs/decisions.md) first.
 
         Emotion recognition is deferred (D-015). New cloud ASR providers belong in the **New ASR backend** template.
 

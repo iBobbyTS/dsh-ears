@@ -5,7 +5,6 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   PLUGIN_REPOSITORY_SLUG,
   PLUGIN_REPOSITORY_URL,
-  UPDATE_COMMAND,
   checkForPluginUpdate,
   compareReleaseVersions,
   interpretUpdateCheck,
@@ -13,6 +12,7 @@ import {
   repositorySlugFromUrl,
   repositoryUrlFromPackage
 } from '../src/about.js'
+import { EARS_REMOTE_DESCRIPTORS } from '../src/remote-definitions.js'
 
 describe('installed about info', () => {
   it('reads the package identity from package.json', () => {
@@ -22,12 +22,14 @@ describe('installed about info', () => {
     expect(about.version).toBe('0.4.3')
     expect(about.license).toBe('MIT')
     expect(about.dshCompatibility).toBe('>=0.2.0-rc.1')
-    expect(about.updateCommand).toBe(UPDATE_COMMAND)
+    expect(about).not.toHaveProperty('updateCommand')
+    const descriptor = EARS_REMOTE_DESCRIPTORS.find(({ method }) => method === 'getAbout')
+    expect(descriptor?.result.create().parse(about)).toEqual(about)
   })
 
   it('normalizes a git repository URL into a GitHub slug', () => {
-    expect(repositoryUrlFromPackage({ url: 'git+https://github.com/WizisCool/dsh-ears.git' })).toBe(PLUGIN_REPOSITORY_URL)
-    expect(repositorySlugFromUrl(PLUGIN_REPOSITORY_URL)).toBe('@WizisCool/dsh-ears')
+    expect(repositoryUrlFromPackage({ url: 'git+https://github.com/iBobbyTS/dsh-ears.git' })).toBe(PLUGIN_REPOSITORY_URL)
+    expect(repositorySlugFromUrl(PLUGIN_REPOSITORY_URL)).toBe('@iBobbyTS/dsh-ears')
   })
 
   it('falls back when a package.json field is missing', async () => {
@@ -39,8 +41,7 @@ describe('installed about info', () => {
       repositorySlug: PLUGIN_REPOSITORY_SLUG,
       version: '0.0.0',
       license: 'MIT',
-      dshCompatibility: '>=0.2.0-rc.1',
-      updateCommand: UPDATE_COMMAND
+      dshCompatibility: '>=0.2.0-rc.1'
     })
   })
 })
@@ -112,8 +113,7 @@ describe('npm latest check', () => {
     expect(result).toEqual({
       status: 'unpublished',
       installed: '0.1.0',
-      latest: null,
-      updateCommand: UPDATE_COMMAND
+      latest: null
     })
   })
 
@@ -124,7 +124,9 @@ describe('npm latest check', () => {
     })
     expect(result.status).toBe('update-available')
     expect(result.latest).toBe('0.1.1')
-    expect(result.updateCommand).toBe(UPDATE_COMMAND)
+    expect(result).not.toHaveProperty('updateCommand')
+    const descriptor = EARS_REMOTE_DESCRIPTORS.find(({ method }) => method === 'checkForUpdate')
+    expect(descriptor?.result.create().parse(result)).toEqual(result)
   })
 
   it('reports up to date when latest matches the install', async () => {

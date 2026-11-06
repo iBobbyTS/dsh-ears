@@ -1,14 +1,8 @@
 # Project context
 
-## Purpose
+## Overview
 
-`dsh-ears` is a DeepSeek Harness voice-input plugin:
-
-```text
-microphone → transcription → optional dsh LLM polishing → editable draft → manual send
-```
-
-The user always remains in control of the final send action.
+Current implementation of the voice-input flow defined in [AGENTS](https://github.com/iBobbyTS/dsh-ears/blob/master/AGENTS.md).
 
 ## Official dsh documentation
 
@@ -18,15 +12,13 @@ The user always remains in control of the final send action.
 
 Those tutorials cover Host `apply` / `inject` / `ctx.effect`, cordis.yml `Config` + Schemastery, `dsh.bundle.patch`, and `dsh plugin add`. dsh-ears also uses the browser `dsh.client` half, `settings.section`, `conversation.input.*` slots, and Typert remotes — verify those against the installed packages, not only the basic tutorial.
 
-## Compatibility
+## Compatibility and distribution
 
-- Published maintenance line: dsh-ears versions before 0.3.0 support dsh through `0.1.1-rc.2` under D-035.
-- Current release: dsh-ears `0.4.3` requires dsh `>=0.2.0-rc.1`, compiles against exact `0.2.1-rc.2`, and certifies both `0.2.0-rc.1` and `0.2.1-rc.2`; the peer minimum stays open so later 0.2.x hosts are admitted without a new plugin release (D-058, D-059). The `0.4.3` patch is a runtime fix for the upgraded Bailian console and changes no dsh baseline or peer range (D-060). Plugin settings remain the exported Cordis `Config` read and written through the dsh settings service `describe()`/`update()`/`replace()`.
-- Desktop: the official desktop client is a dsh profile named `desktop` that composes the same `@deepseek-ai/dsh-web-app` bundle as the Web UI, and dsh's client-modules loader accepts exactly one plugin platform word, `web`. dsh-ears therefore keeps `dsh.client.platform: "web"` and one `exports["./client"]` bundle for both surfaces; the application's plugin manager owns that profile, and the `dsh` CLI refuses to manage it.
-- Historical lines: dsh-ears `0.4.0` requires dsh `>=0.1.7-rc.2` (D-056), `0.3.x` supports dsh `0.1.2-rc.1` through `0.1.5-rc.3` (D-051, D-055), and dsh-ears `<0.3.0` supports dsh through `0.1.1-rc.2` (D-035). Users on dsh 0.1.2–0.1.6 must install dsh-ears `<0.4.0`, users on dsh 0.1.7 install `<0.4.1`, and users on dsh 0.1.1 install `<0.3.0`; each range resolves to a release whose declared peers that host accepts, and dsh itself refuses an out-of-range install rather than warning. There is no runtime compatibility layer for those hosts.
-- Node: `^22.19.0 || >=24.0.0`.
-- Distribution: npm is the canonical installation and update channel. Generated `lib/` artifacts are included in the npm tarball but intentionally remain untracked in Git; fixed-commit DSH-Store installation is out of scope (D-054).
-- Promotion, npm publication, and release tags require explicit authorization after automated certification. The `0.3.0` release was authorized on 2026-09-04; its Windows browser smoke remains a documented manual gate. The `0.4.0` release was authorized on 2026-09-28. The `0.4.1` patch was authorized on 2026-09-28 for its tag, npm publication, and GitHub Release, its manual desktop click-through passed the same day through the desktop application's plugin manager, and it was published the same day: npm `latest` and GitHub Release `v0.4.1` both point at it (D-058). The `0.4.2` patch was authorized on 2026-10-17 for its tag, npm publication, and GitHub Release, and was published the same day: npm `latest` and GitHub Release `v0.4.2` both point at it (D-059). The `0.4.3` patch was authorized on 2026-10-17 for its tag, npm publication, and GitHub Release, and was published the same day: npm `latest` and GitHub Release `v0.4.3` both point at it (D-060).
+- Package peer minimum: DSH `>=0.2.0-rc.1`; compile dependencies remain pinned in `package.json` and the lockfile. A peer range is installation acceptance, not proof of every later host's behavior.
+- DSH `0.2.2-rc.1` has been checked against source contracts and automated tests. This does not establish a real Desktop, microphone, or M4 Max end-to-end result.
+- Desktop uses the same `web` client bundle; install its built local directory through the application's plugin manager, which owns the reserved `desktop` profile.
+- This fork is installed from its checkout, not the upstream npm package. The About panel shows upstream npm version information only and does not provide an install or update command.
+- Generated `lib/` remains untracked and is built before local installation or packing. [Development](development.md) owns commands; [ADRs](decisions.md) retain upstream history.
 
 ## Product boundaries
 
@@ -34,7 +26,7 @@ Those tutorials cover Host `apply` / `inject` / `ctx.effect`, cordis.yml `Config
 - Configuration belongs to a dedicated `settings.section` page (`dsh-ears`), not a Plugins-page card (D-017 supersedes D-011).
 - Polishing uses any provider/model route already configured in dsh. The plugin stores the route selection and an optional prompt only. It never owns an LLM API key, base URL, or provider credential flow.
 - Emotion recognition and emotion UI are deferred (D-015).
-- No automatic send and no invisible backend switching during one recording.
+- Product goals and exclusions are owned by [AGENTS](https://github.com/iBobbyTS/dsh-ears/blob/master/AGENTS.md); the sections below describe the current implementation.
 
 ## Package faces
 
@@ -44,6 +36,7 @@ Host (`exports["."]`)
   ├─ native dsh settings scope
   ├─ cloud ASR provider registry and per-provider write-only role('secret') keys
   ├─ bundled whisper.node native runtime and model lifecycle
+  ├─ Qwen3-ASR MLX Python worker, isolated venv, and model lifecycle
   ├─ OpenAI-compatible and DashScope cloud ASR adapters
   ├─ dsh `ctx.llm` route discovery and polishing
   └─ strict Typert Remote descriptors
@@ -111,9 +104,9 @@ Persisted Host configuration is organized into four fixed slots: `general`, `rec
 The Host registers `dsh-ears` under the `dsh-ears` settings namespace. The browser registers `settings.section` id `dsh-ears` (nav order 16). Tabs:
 
 - **General** (default landing): voice-shortcut enable + recorder (default `ctrl+shift+space`), voice-sound toggle, display name (`dsh-ears` or Voice / 语音), recording limit (default 120 seconds).
-- **Recognition**: grouped backend/provider menu (Local: Web Speech / Local Whisper; Cloud: Groq / Deepgram / Bailian / Tencent Cloud / MiMo / SiliconFlow / Volcengine / Custom), Whisper model lifecycle, Default/Vulkan/CUDA acceleration selector, and per-provider key/endpoint/host/model. Web Speech is the default backend for new or incomplete settings, so a fresh install works without a model download; Local Whisper remains selectable and its `default` acceleration is resolved by the Host from platform-supported and installed native variants. Each backend branch carries its own recognition-language row (none for Tencent Cloud; D-042): empty follows the dsh English/中文 locale for Web Speech and means automatic detection — the language parameter is omitted — for Local Whisper, Groq, Bailian, and custom OpenAI-compatible; Tencent Cloud keeps engine type as its language/engine selector with no separate row. Tencent Cloud, Deepgram, and Volcengine expand to a service selector with standard recording and realtime recognition enabled; Volcengine shows one resource-id row per service and keeps one shared recognition-language row (D-042, D-048); hovering a resource-id select shows the raw id in the shared tooltip primitive. MiMo expands to an access-method selector (`api` or `token-plan`) with a regional cluster row for Token Plan. Changing acceleration after the first native load requires restarting the dsh Host.
+- **Recognition**: grouped backend/provider menu (Local: Web Speech / Local Whisper / Qwen3-ASR MLX; Cloud: Groq / Deepgram / Bailian / Tencent Cloud / MiMo / SiliconFlow / Volcengine / Custom), Whisper model lifecycle, Default/Vulkan/CUDA acceleration selector, and per-provider key/endpoint/host/model. Web Speech is the default backend for new or incomplete settings, so a fresh install works without a model download; Local Whisper remains selectable and its `default` acceleration is resolved by the Host from platform-supported and installed native variants. Each backend branch carries its own recognition-language row (none for Tencent Cloud; D-042): empty follows the dsh English/中文 locale for Web Speech and means automatic detection — the language parameter is omitted — for Local Whisper, Groq, Bailian, and custom OpenAI-compatible; Tencent Cloud keeps engine type as its language/engine selector with no separate row. Tencent Cloud, Deepgram, and Volcengine expand to a service selector with standard recording and realtime recognition enabled; Volcengine shows one resource-id row per service and keeps one shared recognition-language row (D-042, D-048); hovering a resource-id select shows the raw id in the shared tooltip primitive. MiMo expands to an access-method selector (`api` or `token-plan`) with a regional cluster row for Token Plan. Changing acceleration after the first native load requires restarting the dsh Host.
 - **Polishing**: enabled by default, with an optional dsh provider/model/reasoning-effort override; blank persisted route fields follow `agent-default-model`, while the settings card displays its current real provider/model without saving that projection, and the custom prompt remains available (D-029).
-- **About**: repository, installed version, MIT, dsh range, click-only npm `latest` check (D-033).
+- **About**: repository, installed version, MIT, dsh range, click-only upstream npm `latest` query, with no install/update action (D-033 records its origin).
 
 User-facing copy never ends with a full stop in either locale, across hints, errors, statuses, and notices (D-038); multi-sentence strings use commas or semicolons, and internal jargon such as "Host" is avoided. `tests/locale.test.ts` enforces the no-full-stop rule.
 
@@ -129,24 +122,25 @@ Host validation and client validation share `src/config.ts`. `src/config-schema.
 
 ```text
 Browser Client
-  ├─ Web Speech live session OR MediaRecorder final capture
+  ├─ Web Speech live session, MediaRecorder final capture, or realtime PCM stream
   ├─ conversation.input.right (idle microphone)
   ├─ conversation.input.dock (active recognition card + waveform)
-  ├─ inputActions.setDraft()
+  ├─ revision-guarded draft/span insertion and reference-chip preservation
   └─ dshEars/transcribe + dshEars/polish ──> Host
                                              ├─ dsh ctx.llm
-                                             ├─ whisper process
+                                             ├─ whisper.node native runtime
+                                             ├─ local MLX Python worker (private stdio)
                                              └─ configured cloud endpoint
 ```
 
 The client receives `remote.dshEars` through a Cordis child scope created after the Typert contribution is mounted.
 
-## Hardening invariants
+## Lifecycle and wire behavior
 
 - Settings auto-save valid drafts (D-031). There is no unified cross-field validity sweep and no Save/Discard footer.
 - Host final ASR requests are bounded. Cloud ASR has a 120-second timeout. Unknown backend/model identifiers are rejected.
 - Host and Client Remote descriptors must agree on endpoint IDs, parameter shapes, codecs, result schemas, and cancellation metadata (`tests/remote-contract.test.ts`).
-- Whisper downloads are trustworthy only through their `.dsh-ears-done` marker. Discovery failures are negative-cached for 30 seconds.
+- Whisper downloads are trustworthy only through their `.dsh-ears-done` marker.
 - Realtime sessions own their socket and idle timer; open failure, open timeout, external abort, failed send, finish, cancel, idle expiry, Host disposal, and aborted browser startup all release the session. A normal socket close is only a successful finish after a terminal metadata message or a final result, so an incomplete stream never becomes an empty success. Local Whisper model deletion crosses an exclusive context-release barrier: the active job is stopped, the native context is released, and the backing file is removed before any queued transcription may reopen the model.
 - Strict Remote result objects keep optional fields absent rather than explicitly `undefined`; the wire test replays the gateway's JSON-safety check (D-036).
 - Local Whisper uses the bundled native package and a separately downloaded whisper.cpp GGML model. Browser capture is normalized to mono 16 kHz PCM16 WAV. Runtime failures stay concise: the settings page reports native package or selected acceleration unavailability, with no Python/FFmpeg/CLI setup guide.
@@ -162,6 +156,6 @@ The client receives `remote.dshEars` through a Cordis child scope created after 
 
 Optional evidence, not a live spec:
 
-- [`.agent/research/validation-timing-patterns.md`](./research/validation-timing-patterns.md) — D-024
-- [`.agent/research/form-library-evaluation.md`](./research/form-library-evaluation.md) — D-025
-- [`.agent/research/voice-dictation-shortcuts.md`](./research/voice-dictation-shortcuts.md) — D-028
+- [`research/validation-timing-patterns.md`](./research/validation-timing-patterns.md) — D-024
+- [`research/form-library-evaluation.md`](./research/form-library-evaluation.md) — D-025
+- [`research/voice-dictation-shortcuts.md`](./research/voice-dictation-shortcuts.md) — D-028

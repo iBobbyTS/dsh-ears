@@ -315,8 +315,7 @@ export class EarsSettingsController {
     const fallback: UpdateCheckResult = {
       status: 'error',
       installed: '',
-      latest: null,
-      updateCommand: 'dsh plugin --profile web add dsh-ears'
+      latest: null
     }
     if (this.disposed) return fallback
     const result = await this.remote.checkForUpdate()

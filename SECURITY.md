@@ -7,9 +7,9 @@ dsh-ears handles microphone recordings, transcripts, dsh model routes, and optio
 ## Data handling
 
 - Web Speech recognition is performed by the browser API and may transmit audio to the browser vendor.
-- Local/cloud backends capture one recording with `MediaRecorder`, then send it to the Host through a bounded RPC.
+- Final-recording backends send bounded captured audio to the Host. Realtime backends send ordered PCM chunks through Host RPCs; local Qwen3-ASR uses mono 16 kHz PCM16 and a Host-owned MLX worker.
 - Local Whisper uses the bundled whisper.node native runtime, writes normalized PCM16 WAV audio only to a private temporary directory, and removes that directory after success, failure, or cancellation. The model is downloaded separately into the plugin cache and is not bundled into the npm tarball.
-- The cloud adapter sends audio only to the endpoint selected by the configured provider: preset providers (Groq, Deepgram, Tencent Cloud, and MiMo) use their Host-pinned endpoint, while Bailian and Custom use a user-supplied endpoint. It does not crawl, discover, or probe endpoints.
+- The cloud adapter sends audio only to the endpoint selected by the configured provider: preset providers (Groq, Deepgram, Tencent Cloud, MiMo, SiliconFlow, and Volcengine) use their Host-pinned endpoint, while Bailian and Custom use a user-supplied endpoint. It does not crawl, discover, or probe endpoints.
 - Cloud responses are bounded before JSON parsing. Audio and transcript data are not intentionally logged or persisted by the plugin.
 - The draft remains user-editable. Late ASR or polishing results are discarded when the user has changed the draft.
 
@@ -17,13 +17,14 @@ Users should review the retention, processing, and jurisdiction policy of any cl
 
 ## Credentials
 
-Never put a secret in source code, tests, screenshots, logs, or commits. Cloud ASR API keys are stored on the dsh Host through schemastery `role('secret')` settings fields, one per provider (`groq.apiKey`, `deepgram.apiKey`, `customOpenAi.apiKey`, `bailian.apiKey`, `tencent.secretKey`, `mimo.apiKey`), following the shipped `dsh-web-search-deepseek` pattern: values are write-only across the plugin wire — `getSettings` redacts them and reports only configured booleans, and `updateSettings` uses absent=keep / set / empty=clear semantics. Browser code never receives the key, and the key is never included in the repository.
+Never put a secret in source code, tests, screenshots, logs, or commits. Cloud ASR secrets are stored on the dsh Host through the per-provider schemastery `role('secret')` fields defined in `src/config-schema.ts`: values are write-only across the plugin wire — `getSettings` redacts them and reports only configured booleans, and `updateSettings` uses absent=keep / set / empty=clear semantics. Browser code never receives the key, and the key is never included in the repository.
 
-Cloud endpoint URLs must use HTTP(S) and must not contain embedded credentials. Custom endpoints with an API key must use HTTPS; credential-free local HTTP endpoints remain available for local deployments. Preset providers (Groq, Deepgram, Tencent Cloud, and MiMo) pin their endpoint on the Host side; Bailian accepts a user-supplied HTTPS origin and the Custom OpenAI-compatible provider accepts a user-supplied endpoint.
+Cloud endpoint URLs must use HTTP(S) and must not contain embedded credentials. Custom endpoints with an API key must use HTTPS; credential-free local HTTP endpoints remain available for local deployments. Preset providers (Groq, Deepgram, Tencent Cloud, MiMo, SiliconFlow, and Volcengine) pin their endpoint on the Host side; Bailian accepts a user-supplied HTTPS origin and the Custom OpenAI-compatible provider accepts a user-supplied endpoint.
 
 ## Host safety
 
 - Local Whisper loads the selected native package directly; it does not spawn Python, Torch, FFmpeg, or a Whisper CLI process.
+- Local Qwen3-ASR separately owns an isolated Python/MLX environment and model cache. Explicit setup downloads pinned dependencies and allowlisted weights; inference runs locally through private worker stdio without a listening server. Cancellation closes the affected voice session; the worker is released on idle expiry, explicit unload, or Host disposal.
 - Audio, response, stderr, and transcript sizes are bounded.
 - Abort signals are forwarded to ASR and LLM operations.
 - Temporary files and MediaRecorder tracks are released on all terminal paths.
