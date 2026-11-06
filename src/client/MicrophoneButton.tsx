@@ -195,7 +195,7 @@ export function MicrophoneButton({ useInput, inputActions, remote, useEarsSettin
 
   useEffect(() => {
     // Slash commands lock the input before consuming its document.
-    if (inputPhase === 'adjudicating' || inputPhase === 'submitting') voiceSession.requestEnd()
+    if (['adjudicating', 'submitting', 'sending'].includes(inputPhase)) voiceSession.requestEnd()
   }, [inputPhase, voiceSession])
 
   useEffect(() => {
