@@ -26,27 +26,14 @@
   "type": "module",
   "engines": {
     "node": "^22.19.0 || >=24.0.0",
-    "dsh": ">=0.2.0-rc.1"
+    "dsh": ">=0.2.2-rc.1"
   },
   "main": "lib/index.js",
-  "types": "lib/index.d.ts",
   "exports": {
-    ".": {
-      "types": "./lib/index.d.ts",
-      "default": "./lib/index.js"
-    },
-    "./client": {
-      "types": "./lib/client.d.ts",
-      "default": "./lib/client.js"
-    },
-    "./typert": {
-      "types": "./lib/typert.d.ts",
-      "default": "./lib/typert.js"
-    },
-    "./remote": {
-      "types": "./lib/remote.d.ts",
-      "default": "./lib/remote.js"
-    },
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./typert": "./lib/typert.js",
+    "./remote": "./lib/remote.js",
     "./locale/*.json": "./locale/*.json",
     "./package.json": "./package.json"
   },
@@ -55,11 +42,22 @@
     "cordis.patch.yml",
     "README.md",
     "README.en.md",
-    "CHANGELOG.md",
+    "LICENSE",
     "assets",
     "python/qwen3_worker.py",
     "locale/*.json",
-    "docs"
+    "docs/usage.en.md",
+    "docs/usage.zh.md",
+    "docs/development.md",
+    "docs/architecture.md",
+    "docs/README.md",
+    "docs/roadmap.md",
+    "docs/decisions.md",
+    "docs/glossary.md",
+    "AGENTS.md",
+    "SECURITY.md",
+    "CONTRIBUTING.md",
+    "CHANGELOG.md"
   ],
   "packageManager": "pnpm@11.19.0",
   "dsh": {
@@ -80,61 +78,62 @@
     }
   },
   "scripts": {
-    "build": "tsdown && tsc -p tsconfig.build.json",
-    "check": "tsc --noEmit -p tsconfig.json",
-    "compat:smoke": "node scripts/compat-smoke.mjs",
-    "use:platform": "node scripts/select-node-modules.mjs",
-    "dev:watch": "tsdown --watch",
+    "typecheck": "tsc -p tsconfig.host.json && tsc -p tsconfig.client.json",
+    "build:runtime": "node scripts/build-runtime.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
-    "release:check": "node scripts/release-check.mjs",
+    "check:dist": "node scripts/check-dist.mjs",
+    "check": "pnpm typecheck && pnpm test && pnpm check:dist",
+    "compat:smoke": "node scripts/compat-smoke.mjs --dsh-version 0.2.2-rc.1",
     "verify:package": "node scripts/verify-package.mjs",
-    "prepack": "pnpm build && pnpm verify:package",
+    "release:check": "node scripts/release-check.mjs",
+    "dev:watch": "tsdown --watch",
     "prepare:patch": "node scripts/create-dev-patch.mjs",
-    "dev:config": "pnpm build && pnpm prepare:patch && dsh --profile web --dump-config --patch ./.dsh/cordis.patch.yml",
-    "dev:web": "pnpm build && pnpm prepare:patch && dsh --profile web --patch ./.dsh/cordis.patch.yml"
+    "dev:config": "pnpm build:runtime && pnpm prepare:patch && dsh --profile web --dump-config --patch ./.dsh/cordis.patch.yml",
+    "dev:web": "pnpm build:runtime && pnpm prepare:patch && dsh --profile web --patch ./.dsh/cordis.patch.yml"
   },
   "peerDependencies": {
-    "@deepseek-ai/cordis": "^4.0.4",
-    "@deepseek-ai/dsh-api-remotes": ">=0.2.0-rc.1",
-    "@deepseek-ai/dsh-client-locale": ">=0.2.0-rc.1",
-    "@deepseek-ai/dsh-client-ui-conversation": ">=0.2.0-rc.1",
-    "@deepseek-ai/dsh-client-ui-primitives": ">=0.2.0-rc.1",
-    "@deepseek-ai/dsh-client-ui-renderer": ">=0.2.0-rc.1",
-    "@deepseek-ai/dsh-client-ui-settings": ">=0.2.0-rc.1",
-    "@deepseek-ai/dsh-client-ui-settings-plugins": ">=0.2.0-rc.1",
-    "@deepseek-ai/dsh-client-ui-slots": ">=0.2.0-rc.1",
-    "@deepseek-ai/dsh-settings": ">=0.2.0-rc.1",
-    "@deepseek-ai/dsh-typert-protocol": ">=0.2.0-rc.1",
-    "@deepseek-ai/schemastery": "^3.18.4",
-    "react": "^18.2.0 || ^19.0.0"
+    "@deepseek-ai/cordis": "^4.1.0",
+    "@deepseek-ai/dsh-api-remotes": ">=0.2.2-rc.1",
+    "@deepseek-ai/dsh-client-locale": ">=0.2.2-rc.1",
+    "@deepseek-ai/dsh-client-ui-conversation": ">=0.2.2-rc.1",
+    "@deepseek-ai/dsh-client-ui-primitives": ">=0.2.2-rc.1",
+    "@deepseek-ai/dsh-client-ui-renderer": ">=0.2.2-rc.1",
+    "@deepseek-ai/dsh-client-ui-settings": ">=0.2.2-rc.1",
+    "@deepseek-ai/dsh-client-ui-settings-plugins": ">=0.2.2-rc.1",
+    "@deepseek-ai/dsh-client-ui-slots": ">=0.2.2-rc.1",
+    "@deepseek-ai/dsh-settings": ">=0.2.2-rc.1",
+    "@deepseek-ai/dsh-typert-protocol": ">=0.2.2-rc.1",
+    "@deepseek-ai/schemastery": "^3.19.0",
+    "react": "^18.2.0 || ^19.0.0",
+    "@deepseek-ai/dsh-client-store": ">=0.2.2-rc.1"
   },
   "dependencies": {
-    "@deepseek-ai/dsh-client-store": "0.2.1-rc.2",
-    "immer": "^11.1.18",
-    "zod": "^4.4.3",
-    "zustand": "~5.0.15"
+    "zod": "4.6.7"
   },
   "devDependencies": {
-    "@deepseek-ai/cordis": "4.0.5",
-    "@deepseek-ai/dsh-api-remotes": "0.2.1-rc.2",
-    "@deepseek-ai/dsh-client-locale": "0.2.1-rc.2",
-    "@deepseek-ai/dsh-client-ui-conversation": "0.2.1-rc.2",
-    "@deepseek-ai/dsh-client-ui-primitives": "0.2.1-rc.2",
-    "@deepseek-ai/dsh-client-ui-renderer": "0.2.1-rc.2",
-    "@deepseek-ai/dsh-client-ui-settings": "0.2.1-rc.2",
-    "@deepseek-ai/dsh-client-ui-settings-plugins": "0.2.1-rc.2",
-    "@deepseek-ai/dsh-client-ui-slots": "0.2.1-rc.2",
-    "@deepseek-ai/dsh-settings": "0.2.1-rc.2",
-    "@deepseek-ai/dsh-typert-protocol": "0.2.1-rc.2",
-    "@deepseek-ai/schemastery": "3.18.5",
-    "@thesvg/react": "^3.3.1",
-    "@types/node": "^22.20.1",
-    "@types/react": "~18.3.31",
-    "lightningcss": "^1.33.0",
-    "react": "^18.3.1",
-    "tsdown": "^0.23.0",
+    "@deepseek-ai/cordis": "4.1.0",
+    "@deepseek-ai/dsh-api-remotes": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-client-locale": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-client-ui-conversation": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-client-ui-primitives": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-client-ui-renderer": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-client-ui-settings": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-client-ui-settings-plugins": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-client-ui-slots": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-settings": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-typert-protocol": "0.2.2-rc.1",
+    "@deepseek-ai/schemastery": "3.19.0",
+    "@thesvg/react": "3.3.14",
+    "@types/node": "22.20.5",
+    "@types/react": "18.3.31",
+    "lightningcss": "1.33.0",
+    "react": "18.3.1",
+    "tsdown": "0.23.1",
     "typescript": "7.0.2",
-    "vitest": "^5.0.0"
+    "vitest": "5.0.4",
+    "@deepseek-ai/dsh-client-store": "0.2.2-rc.1",
+    "zustand": "4.5.7",
+    "immer": "10.1.1"
   }
 }

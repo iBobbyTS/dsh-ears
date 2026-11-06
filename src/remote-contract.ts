@@ -70,14 +70,7 @@ export const aboutInfoSchema = z.object({
   license: z.string(),
   dshCompatibility: z.string()
 })
-export const updateCheckResultSchema = z.object({
-  status: z.enum(['up-to-date', 'update-available', 'unpublished', 'error']),
-  installed: z.string(),
-  latest: z.string().nullable()
-})
-
 export type EarsSettingsPatch = Partial<EarsSettings>
 export type EarsSettingsView = z.infer<typeof earsSettingsViewSchema>
-export type { Qwen3ModelState } from './asr/qwen3-runtime.js'
+export type Qwen3ModelState = z.infer<typeof qwenModelStateSchema>
 export type AboutInfo = z.infer<typeof aboutInfoSchema>
-export type UpdateCheckResult = z.infer<typeof updateCheckResultSchema>

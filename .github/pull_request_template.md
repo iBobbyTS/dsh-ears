@@ -20,9 +20,9 @@ Related: Fixes #NN
 
 ## Validation
 
-- [ ] `pnpm check`
+- [ ] `pnpm check` (typecheck, tests, independent dist/acquisition checks)
 - [ ] `pnpm test`
-- [ ] `pnpm build` if emitted artifacts changed
+- [ ] `pnpm build:runtime` and commit matching `lib/` if emitted artifacts changed
 - [ ] Web smoke if the composer, recognition bar, or settings changed
 - [ ] Restarted `dsh web` if Host, settings registration, Remote, or schema changed
 - [ ] Diff has no keys, cookies, recordings, or personal paths

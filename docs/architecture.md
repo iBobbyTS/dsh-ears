@@ -18,8 +18,12 @@ The Config schema uses loose volatile leaves so field saves apply live without r
 
 ## Remote contract
 
-`src/remote-definitions.ts` is the descriptor owner shared by Host Typert and Client Remote. Four settings/About calls, six Qwen management calls, and four realtime calls use strict zod codecs with factories. `startRealtime` reads retained model/TTL/prompt; `sendRealtimeAudio` accepts bounded base64 PCM16, `finishRealtime` returns a structured text success/error, and `cancelRealtime` closes the session. No backend selector, batch transcription, model route discovery, credentials, or polishing methods remain.
+`src/remote-definitions.ts` is the descriptor owner shared by Host Typert and Client Remote. Three settings/About calls, six Qwen management calls, and four realtime calls use strict zod codecs with factories. `startRealtime` reads retained model/TTL/prompt; `sendRealtimeAudio` accepts bounded base64 PCM16, `finishRealtime` returns a structured text success/error, and `cancelRealtime` closes the session. No backend selector, batch transcription, model route discovery, credentials, or polishing methods remain.
 
 ## Delivery and evidence
 
-Package identity and upstream attribution remain unchanged. This fork is installed from its built checkout; the About panel's upstream npm information does not install or update this fork. Generated `lib/` is currently untracked and built before local loading or packing. The checked Host target is DSH 0.2.2-rc.1 source; peer ranges and the older compatibility smoke matrix alone do not establish every accepted Host version. Real Desktop/microphone acceptance is pending.
+Package identity and upstream attribution remain unchanged. Runtime lib JS/maps are generated from src and committed with it; Python/locale/assets are direct maintained resources. The package has no implicit install/Git compilation lifecycle and no root build command. About links to this fork's installation/update instructions rather than querying upstream npm.
+
+Host and Client type environments are separate. DSH 0.2.2-rc.1 platform.ts/seed.ts at source 66491b05e3f05ad35bcdd4f6cd7ed26041d9e3db supplies the consumed React, zod, client-store and UI primitives/slots module identities. The Client external list comes from scripts/browser-modules.mjs; remaining imports are bundled. Host services/frameworks remain peers, while Host zod parsing has an ordinary runtime dependency: a browser seed alone does not make a Node package available in a Profile. Store-engine packages are only development fixtures for Node-side tests; browser runtime uses the Host's store.
+
+check:dist independently rebuilds current dirty inputs before comparing all generated files, then verifies the actual tarball and isolated target DSH tarball/Git acquisition and Host/browser factory loading. These checks do not establish real Desktop microphone or Qwen inference acceptance. [Development](development.md) owns prerequisites and commands.

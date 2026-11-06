@@ -1,39 +1,44 @@
 # Development
 
-[AGENTS](https://github.com/iBobbyTS/dsh-ears/blob/master/AGENTS.md) owns development constraints. Run commands from the fork checkout root. Node.js and pnpm versions come from `package.json`.
+[AGENTS](../AGENTS.md) owns project boundaries; the parent repository's plugin-development standard owns the shared development/delivery contract. Run these commands from the fork checkout. End-user Git/tarball installation uses committed prebuilt artifacts and needs no plugin compiler.
 
-## Dependencies and build
+## Tooling and editing
 
-On macOS, use `pnpm install --frozen-lockfile` directly. `pnpm use:platform` only manages Windows and Linux/WSL dependency trees; do not run it on macOS. On a fresh Windows/WSL clone or after switching between those platforms, stop dev servers, run `pnpm use:platform`, then install dependencies.
+Use pnpm 11.19.0 and the exact development-tool versions in package.json/lockfile. The selected tsdown tool requires Node 22.19+, 24.11+ or 26+; this build-tool requirement is separate from the plugin runtime range. Development dependencies target DSH 0.2.2-rc.1 with Cordis 4.1.0/Schemastery 3.19.0.
 
 ```sh
 pnpm install --frozen-lockfile
+pnpm typecheck
+pnpm build:runtime
 pnpm check
-pnpm test
-pnpm build
-pnpm verify:package
 ```
 
-Local Qwen3-ASR requires Apple Silicon macOS and Python 3.10+ for its isolated MLX environment. No other ASR runtime is shipped.
+Edit src, never generated lib. Commit the matching complete lib JS/maps with source changes. Host and Client have separate strict environment configs: NodeNext/Node without DOM, and Bundler/DOM/React. The plugin exports runtime entry points rather than a declaration SDK. JS maps embed their source contents with stable relative names. The Python worker is delivered directly from python/qwen3_worker.py.
 
-## Local loading and refresh
+## Commands and distribution
 
-For Web, install the built checkout once with `dsh plugin --profile web add "$PWD"`. In Desktop, select the built directory in the application's plugin manager. Windows cmd uses the full directory path instead of `$PWD`.
+| Command | Responsibility |
+| --- | --- |
+| pnpm typecheck | Separate Host and Client environment checks |
+| pnpm build:runtime | Clean only lib and regenerate all runtime JS/maps |
+| pnpm test | Project Vitest regressions, including distribution failure probes |
+| pnpm check:dist | Independent dirty-candidate rebuild, complete file/content comparison, actual pack, links/resources/maps, isolated tarball/Git installation and real Host/Client loading |
+| pnpm check | typecheck + test + check:dist; no redundant maintained-lib build |
+| pnpm verify:package | Current package/entry/Remote/native-module contract |
+| pnpm compat:smoke | Target DSH 0.2.2-rc.1 fresh/canonical synthetic Qwen settings and browser loader smoke |
 
-```sh
-pnpm dev:config
-pnpm dev:web
-pnpm dev:watch
-```
+check:dist never overwrites the maintained lib before comparing it. A stale, missing or extra file fails with its path; rebuild explicitly, inspect and commit the matching output. It packs the actual candidate without suppressing installation scripts. It also builds a disposable Git fixture from that candidate and asks the target DSH CLI to acquire both tarball and Git forms into isolated profiles, independently of checkout/dev dependencies/reference sources. Its temporary fixture commit does not touch the project's Git history.
 
-`dev:config` and `dev:web` build and write the ignored `.dsh/cordis.patch.yml` HMR overlay. Do not insert a second loader entry. Run watch in a separate terminal when using it. Client changes need a rebuild and browser refresh; Host, settings registration, Remote, or schema changes also need a Host restart. A copied profile dependency must be refreshed before changes in this checkout reach the running app.
+These checks need network/package-manager/Git access and a development Chromium installation for the served Client factory/apply probe. Set CHROMIUM_BIN if Chrome/Chromium is not auto-detected. A dedicated temporary browser profile and DSH_HOME are removed afterward; no microphone/model control is clicked. This is developer tooling, not an end-user dependency. Package acquisition, Host/Client loading, real Desktop interaction and real ASR inference are separate evidence claims.
 
-## Validation
+The bounded diagnostic `node scripts/check-dist.mjs --rebuild-only` checks only independent output consistency; it does not satisfy the full distribution gate. No root build, prepare, prepack or installation compile hook exists.
 
-Use the smallest checks that distinguish the changed behavior: `pnpm check`, relevant Vitest suites, and `pnpm build` when emitted artifacts change. `pnpm verify:package` checks the built package. `pnpm compat:smoke` uses the versions configured in its script; it does not certify every version accepted by peer ranges. A real renderer/microphone check remains separate from simulated contracts.
+## Local loading
 
-Before a commit, review explicit staged paths and run `git diff --cached --check`. Examples and docs must preserve the distinction between this fork's checkout and upstream published releases.
+After installing development dependencies and building, use the absolute checkout directory through the Desktop plugin manager or `dsh plugin --profile web add "$PWD"`. For Desktop CLI commands use the application's installed CLI path from [README](../README.en.md), its initialized desktop profile, and a fully quit application.
+
+`pnpm dev:config`, `pnpm dev:web` and `pnpm dev:watch` retain local HMR support. The first two explicitly build and write only the ignored .dsh overlay. Host/Remote/schema changes need a Host restart; Client changes need a rebuild/refresh. Before delivery, run build:runtime so watch-era obsolete chunks are removed, then check.
 
 ## Release status
 
-Upstream release history and former trusted-publisher settings are recorded in [ADRs](decisions.md) and [CHANGELOG](../CHANGELOG.md). They do not grant this fork access to the upstream npm package or authorize a release. Define the target repository, package authority, version, and workflow with the maintainer before an authorized release.
+Package version remains 0.4.3; no release is implied. There is no automatic npm publishing workflow or inherited upstream publication authorization. Maintainer-authorized publication can use the existing offline release:check metadata command and the same verified tarball. Current installation and updates use this fork's Git source or a verified tarball.

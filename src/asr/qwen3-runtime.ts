@@ -1,3 +1,5 @@
+import type { Qwen3ModelState } from '../remote-contract.js'
+export type { Qwen3ModelState } from '../remote-contract.js'
 /**
  * Host-owned, fully local Qwen3-ASR runtime and model lifecycle.
  * No listener ports: the Python worker uses private NDJSON stdio.
@@ -26,20 +28,6 @@ export function qwenCacheRoot(platform: NodeJS.Platform = process.platform, home
 
 export function qwenModelPath(id: Qwen3ModelId, root = qwenCacheRoot()): string {
   return join(root, 'models', id)
-}
-
-export interface Qwen3ModelState {
-  supported: boolean
-  runtimeInstalled: boolean
-  downloaded: boolean
-  downloading: boolean
-  phase: 'idle' | 'runtime' | 'weights'
-  progress: number | null
-  loaded: boolean
-  activeSessions: number
-  expiresAt: number | null
-  ttlMinutes: number
-  error: string | null
 }
 
 type WorkerReply = { id?: number; type?: string; text?: string; error?: string; final?: boolean }

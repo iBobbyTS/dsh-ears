@@ -34,29 +34,17 @@ const cardState: EarsCardState = {
 }
 
 describe('EarsSettingsSection lifecycle', () => {
-  it.each([['English', localeEn], ['Chinese', localeZh]] as const)('keeps newer upstream versions informational in %s', (_name, dictionary) => {
+  it.each([['English', localeEn], ['Chinese', localeZh]] as const)('links updates to the fork instructions in %s', (_name, dictionary) => {
     reactMocks.useEffect.mockClear()
     reactMocks.useState.mockReset()
-    reactMocks.useState.mockImplementation((initial) => {
-      if (initial === 'general') return ['about', vi.fn()]
-      if (initial !== null && typeof initial === 'object' && initial.status === 'idle') {
-        return [{ status: 'update-available', installed: '0.4.3', latest: '9.9.9' }, vi.fn()]
-      }
-      return [initial, vi.fn()]
-    })
+    reactMocks.useState.mockImplementation((initial) => initial === 'general' ? ['about', vi.fn()] : initial === null ? [{ repository: 'https://github.com/iBobbyTS/dsh-ears', repositorySlug: '@iBobbyTS/dsh-ears', version: '0.4.3', license: 'MIT', dshCompatibility: '>=0.2.2-rc.1' }, vi.fn()] : [initial, vi.fn()])
     const tree = EarsSettingsSection({
-      useEarsCard: (selector) => selector(cardState),
-      earsT: (key, params) => dictionary[key].replace(/\{(\w+)\}/g, (match, name: string) => params?.[name] === undefined ? match : String(params[name])),
-      flush: vi.fn(),
-      loadAbout: vi.fn(async () => null),
-      checkForUpdate: vi.fn(async () => ({ status: 'update-available' as const, installed: '0.4.3', latest: '9.9.9' }))
+      useEarsCard: (selector) => selector(cardState), earsT: (key) => dictionary[key], flush: vi.fn(), loadAbout: vi.fn(async () => null)
     } as Parameters<typeof EarsSettingsSection>[0])
     const elements = renderHostElements(tree)
-    const actions = elements.filter((element) => element.type === 'button' && element.props?.role !== 'tab')
-    expect(actions).toHaveLength(1)
-    expect(textContent(actions)).toBe(dictionary.aboutCheckAction)
-    expect(textContent(elements)).toContain(dictionary.aboutCheck)
-    expect(textContent(elements)).toContain('9.9.9')
+    const link = elements.find((element) => element.type === 'a' && element.props?.href === 'https://github.com/iBobbyTS/dsh-ears#install')
+    expect(textContent(link)).toBe(dictionary.aboutUpdatesLink)
+    expect(textContent(elements)).not.toContain('npm')
   })
 
   it('flushes pending auto-saves when the settings section unmounts', () => {
@@ -71,7 +59,6 @@ describe('EarsSettingsSection lifecycle', () => {
       edit: vi.fn(),
       flush,
       loadAbout: vi.fn(async () => null),
-      checkForUpdate: vi.fn(async () => ({ status: 'unpublished' as const, installed: '0.1.0', latest: null }))
     })
 
     const lifecycleEffect = reactMocks.useEffect.mock.calls.find(([, dependencies]) => Array.isArray(dependencies) && dependencies.length === 0)

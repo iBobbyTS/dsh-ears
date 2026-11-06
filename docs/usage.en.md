@@ -12,7 +12,7 @@ Click the Composer microphone or press `Ctrl+Shift+Space` to start/stop. The rec
 | --- | --- |
 | General | Display name, shortcut toggle/chord, sound cues, recording limit (1–600 seconds; default 120) |
 | Recognition | Qwen model, idle TTL (1–1440 minutes; default 60), context prompt (up to 1024 characters), model/runtime management |
-| About | Version, license, DSH compatibility, upstream npm version information |
+| About | Version, license, DSH compatibility, fork installation/update instructions |
 
 Valid fields save independently after a short delay or on blur. Invalid drafts stay visible without blocking another valid field. A failed save keeps edits. An empty context prompt removes model biasing; a prompt can steer script or domain terms.
 

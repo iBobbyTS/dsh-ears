@@ -18,16 +18,16 @@ describe('Qwen-only Remote contract', () => {
   it('shares exactly the retained descriptor table with strict codec factories', () => {
     expect(TYPERT.invocations).toBe(EARS_REMOTE_DESCRIPTORS)
     expect(TYPERT_REMOTE.descriptors).toBe(EARS_REMOTE_DESCRIPTORS)
-    expect(EARS_REMOTE_DESCRIPTORS.map(({ method }) => method).sort()).toEqual(['getAbout', 'checkForUpdate', 'getSettings', 'updateSettings', 'getQwenModelState', 'downloadQwenModel', 'cancelQwenModelDownload', 'deleteQwenModel', 'startQwenService', 'unloadQwenService', 'startRealtime', 'sendRealtimeAudio', 'finishRealtime', 'cancelRealtime'].sort())
+    expect(EARS_REMOTE_DESCRIPTORS.map(({ method }) => method).sort()).toEqual(['getAbout', 'getSettings', 'updateSettings', 'getQwenModelState', 'downloadQwenModel', 'cancelQwenModelDownload', 'deleteQwenModel', 'startQwenService', 'unloadQwenService', 'startRealtime', 'sendRealtimeAudio', 'finishRealtime', 'cancelRealtime'].sort())
     const codecs = EARS_REMOTE_DESCRIPTORS.flatMap((descriptor) => [...descriptor.parameters.map(({ codec }) => codec), descriptor.result])
-    expect(codecs).toHaveLength(25)
+    expect(codecs).toHaveLength(24)
     for (const codec of codecs) {
       expect(codec.mode).toBe('strict')
       expect(typeof codec.create().parse).toBe('function')
       expect(() => codec.create().parse(19999)).toThrow()
     }
     expect(EARS_REMOTE_DESCRIPTORS.every(({ service }) => service === 'dshEarsQwen')).toBe(true)
-    expect(EARS_REMOTE_DESCRIPTORS.filter((item) => 'cancellation' in item).map(({ method }) => method).sort()).toEqual(['checkForUpdate', 'updateSettings', 'startRealtime', 'sendRealtimeAudio', 'finishRealtime'].sort())
+    expect(EARS_REMOTE_DESCRIPTORS.filter((item) => 'cancellation' in item).map(({ method }) => method).sort()).toEqual(['updateSettings', 'startRealtime', 'sendRealtimeAudio', 'finishRealtime'].sort())
   })
   it('retains structured failures without explicit undefined fields', () => {
     expect(remoteTextResultSchema.parse({ status: 'error', code: 'asr.unexpected', message: 'failed', params: { detail: 'worker failed' } })).toMatchObject({ params: { detail: 'worker failed' } })

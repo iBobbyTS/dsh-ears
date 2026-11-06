@@ -2,7 +2,6 @@ import { EARS_REMOTE_DESCRIPTORS } from './remote-definitions.js'
 
 const signatures = {
   getAbout: 'getAbout(): AboutInfo',
-  checkForUpdate: 'checkForUpdate(signal: AbortSignal): Promise<UpdateCheckResult>',
   getSettings: 'getSettings(): EarsSettingsView',
   updateSettings: 'updateSettings(patch: EarsSettingsPatch, signal: AbortSignal): Promise<EarsSettingsView>',
   getQwenModelState: 'getQwenModelState(model: string): Promise<Qwen3ModelState>',
@@ -34,7 +33,6 @@ export const TYPERT = {
         { name: 'EarsSettingsPatch', declaration: 'export type EarsSettingsPatch = Partial<EarsSettings>' },
         { name: 'EarsSettingsView', declaration: 'export interface EarsSettingsView { available: boolean; writable: boolean; settings: EarsSettings; recoveredSettingsFields?: string[]; overridden: string[] }' },
         { name: 'AboutInfo', declaration: 'export interface AboutInfo { repository: string; repositorySlug: string; version: string; license: string; dshCompatibility: string }' },
-        { name: 'UpdateCheckResult', declaration: "export interface UpdateCheckResult { status: 'up-to-date' | 'update-available' | 'unpublished' | 'error'; installed: string; latest: string | null }" },
         { name: 'Qwen3ModelState', declaration: "export interface Qwen3ModelState { supported: boolean; runtimeInstalled: boolean; downloaded: boolean; downloading: boolean; phase: 'idle' | 'runtime' | 'weights'; progress: number | null; loaded: boolean; activeSessions: number; expiresAt: number | null; ttlMinutes: number; error: string | null }" },
         { name: 'RealtimeSession', declaration: 'export interface RealtimeSession { sessionId: string }' },
         { name: 'RealtimeTranscript', declaration: 'export interface RealtimeTranscript { text: string; final: boolean }' },

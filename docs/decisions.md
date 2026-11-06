@@ -38,7 +38,7 @@ These ADRs preserve upstream design and release history. The status index record
 | D-030 | Dual rc.6 / rc.7 | Accepted; extended by D-034 and D-035. |
 | D-031 | Auto-save uncarded settings | Accepted (live save model) |
 | D-032 | Bailian + per-provider keys | Superseded for removed backends/polishing; retained Qwen/general behavior follows architecture.md. |
-| D-033 | About tab | Accepted. First public release authorized 2026-08-19. |
+| D-033 | About tab | Retained About metadata; upstream npm lookup superseded by the own-fork update link. |
 | D-034 | Triple host compatibility for rc.6, rc.7, and rc.8 | Accepted; peer floor superseded by D-035 |
 | D-035 | dsh 0.1.1 compatibility and open peers | Accepted for dsh-ears `<0.3.0`; superseded for the current release line by D-050 and D-051. |
 | D-036 | Wire-safe optional fields on strict RPC results | Accepted |
@@ -59,12 +59,12 @@ These ADRs preserve upstream design and release history. The status index record
 | D-051 | dsh 0.1.2-rc.1 open minimum | Accepted for dsh-ears `0.3.x`; superseded as the floor for dsh-ears `>=0.4.0` by D-056. |
 | D-052 | dsh 0.1.5-rc.1 compatibility for dsh-ears 0.3.1 | Accepted; the dsh 0.1.2 minimum is retained. Superseded as the newest certification target by D-053. |
 | D-053 | dsh 0.1.5-rc.2 compatibility for dsh-ears 0.3.2 | Accepted for 0.3.2; superseded as the newest certification target by D-055. |
-| D-054 | npm-first distribution and DSH-Store fixed-commit boundary | Historical upstream distribution policy. This fork uses its built checkout as documented in README; generated `lib/` remains untracked. |
+| D-054 | npm-first distribution and DSH-Store fixed-commit boundary | Historical upstream distribution policy. Superseded for this fork: committed prebuilt lib, Git/tarball installation and explicit build:runtime/check:dist are current. |
 | D-055 | dsh 0.1.5-rc.3 compatibility for dsh-ears 0.3.3 | Accepted for the 0.3.3 release line; rc.3 replaces rc.2 as the newest certification target with no runtime source change. |
 | D-056 | dsh 0.1.7 port, exported Config settings, and the dsh-ears 0.4.0 floor | Accepted. The settings policy stays live; D-058 supersedes its `>=0.1.7-rc.2` minimum for dsh-ears `>=0.4.1`. |
 | D-057 | Windows/desktop browser smoke waived for dsh-ears 0.4.0 | Historical upstream release gate and 0.4.0 waiver. It does not create a release gate for this fork; current checks follow AGENTS and the development guide. |
-| D-058 | dsh 0.2.0 port, desktop support, and the dsh-ears 0.4.1 dsh floor | Accepted (live compatibility and desktop policy). Supersedes D-056's `>=0.1.7-rc.2` minimum for dsh-ears `>=0.4.1`. |
-| D-059 | dsh 0.2.1 baseline for dsh-ears 0.4.2 | Accepted. Moves the compile, lockfile, and certification baseline to `0.2.1-rc.2` while keeping D-058's `>=0.2.0-rc.1` peer minimum. |
+| D-058 | dsh 0.2.0 port, desktop support, and the dsh-ears 0.4.1 dsh floor | Historical Host floor/compile policy; this fork's current contract and evidence are in package.json and architecture.md. |
+| D-059 | dsh 0.2.1 baseline for dsh-ears 0.4.2 | Historical Host floor/compile policy; this fork's current contract and evidence are in package.json and architecture.md. |
 | D-060 | Bailian upgraded-console model guidance | Superseded where it requires removed backends or polishing; local Qwen-only scope is current. |
 
 Current product scope is local Qwen3-ASR MLX only, with no text polishing. Historical bodies below are retained as decisions made at the time; current behavior is owned by [architecture](architecture.md).

@@ -131,6 +131,6 @@ describe('host settings access', () => {
   })
 
   it('reports the configured dsh range the About page shows', () => {
-    expect(DSH_COMPATIBILITY).toBe('>=0.2.0-rc.1')
+    expect(DSH_COMPATIBILITY).toBe('>=0.2.2-rc.1')
   })
 })

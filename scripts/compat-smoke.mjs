@@ -1,3 +1,4 @@
+import { probeBrowserFactory } from './browser-smoke.mjs'
 import { existsSync } from 'node:fs'
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
@@ -5,10 +6,11 @@ import { tmpdir } from 'node:os'
 import { delimiter, extname, isAbsolute, join, resolve } from 'node:path'
 import { spawn } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
+import { realpath } from 'node:fs/promises'
+import { verifyPackage } from './verify-package.mjs'
 
 export const VERIFIED_DSH_SMOKE_VERSIONS = Object.freeze([
-  '0.2.0-rc.1',
-  '0.2.1-rc.2'
+  '0.2.2-rc.1'
 ])
 
 /**
@@ -17,8 +19,7 @@ export const VERIFIED_DSH_SMOKE_VERSIONS = Object.freeze([
  * under test actually carries instead of one row pinned for every line.
  */
 const DSH_VENDOR_PINS = Object.freeze({
-  '0.2.0-rc.1': { cordis: '4.0.4', schemastery: '3.18.4' },
-  '0.2.1-rc.2': { cordis: '4.0.5', schemastery: '3.18.5' }
+  '0.2.2-rc.1': { cordis: '4.1.0', schemastery: '3.19.0' }
 })
 
 /** Fresh profile or a synthetic existing Qwen/general settings document. */
@@ -87,7 +88,8 @@ function runCommand(command, args, options = {}) {
     let output = ''
     const append = (chunk) => {
       output = `${output}${chunk}`.slice(-20_000)
-      options.onOutput?.(String(chunk))
+      if (options.onOutput) options.onOutput(String(chunk))
+      else process.stdout.write(chunk)
     }
     child.stdout.on('data', append)
     child.stderr.on('data', append)
@@ -196,30 +198,19 @@ function peerDependencySpecs(manifest, dshVersion) {
     if (name === '@deepseek-ai/schemastery') return `${name}@${vendor.schemastery}`
     if (name.startsWith('@deepseek-ai/dsh-')) return `${name}@${dshVersion}`
     if (name === 'react') return `${name}@18.3.1`
+    if (name === 'zod') return `${name}@4.6.7`
     throw new Error(`compat smoke does not know how to pin peer dependency ${name}`)
   })
 }
 
-async function prepareSmokeProject({ projectRoot, smokeProject, dshVersion, pnpm, env }) {
+async function prepareSmokeProject({ projectRoot, smokeProject, dshVersion, pnpm, env, packageSpec }) {
   const manifest = JSON.parse(await readFile(join(projectRoot, 'package.json'), 'utf8'))
-  console.log(`[compat] packing ${manifest.name}@${manifest.version}`)
-  await writeFile(join(smokeProject, 'package.json'), JSON.stringify({
-    name: 'dsh-ears-compat-smoke',
-    version: '0.0.0',
-    private: true
-  }, null, 2) + '\n')
-  // The dsh cordis plugin family peers `~4.0.4` on 0.2.0 and `~4.0.5` on 0.2.1,
-  // matching the vendor pins above, so the resolver picks its own co-tested
-  // generation instead of an override list.
-  await writeFile(join(smokeProject, 'pnpm-workspace.yaml'), [
-    'packages:',
-    '  - .',
-    ''
-  ].join('\n'))
-
-  const tarballName = `${String(manifest.name).replace(/^@/u, '').replaceAll('/', '-')}-${manifest.version}.tgz`
-  await runCommand(pnpm, ['pack', '--pack-destination', smokeProject], { cwd: projectRoot, env })
-  const tarball = join(smokeProject, tarballName)
+  await writeFile(join(smokeProject, 'package.json'), JSON.stringify({ name: 'dsh-ears-compat-smoke', version: '0.0.0', private: true, packageManager: manifest.packageManager }, null, 2) + '\n')
+  if (packageSpec === undefined) {
+    console.log(`[compat] packing ${manifest.name}@${manifest.version}`)
+    await runCommand(pnpm, ['pack', '--pack-destination', smokeProject], { cwd: projectRoot, env })
+    packageSpec = join(smokeProject, `${manifest.name}-${manifest.version}.tgz`)
+  }
   const allowedBuilds = [
     '@deepseek-ai/dsh-subprocess-local',
     '@google/genai',
@@ -231,18 +222,26 @@ async function prepareSmokeProject({ projectRoot, smokeProject, dshVersion, pnpm
     `@deepseek-ai/dsh@${dshVersion}`,
     ...peerDependencySpecs(manifest, dshVersion),
     'react-dom@18.3.1',
-    tarball
   ]
   console.log(`[compat] installing dsh ${dshVersion} in an isolated project`)
   await runCommand(pnpm, ['add', '--save-exact', ...allowedBuilds.map((name) => `--allow-build=${name}`), ...specs], { cwd: smokeProject, env })
-  const pluginRoot = join(smokeProject, 'node_modules', manifest.name)
-  const installedManifest = JSON.parse(await readFile(join(pluginRoot, 'package.json'), 'utf8'))
-  if (installedManifest.version !== manifest.version) throw new Error(`compat smoke installed an unexpected plugin version: ${installedManifest.version}`)
   const dshRoot = join(smokeProject, 'node_modules', '@deepseek-ai', 'dsh')
   const dshManifest = JSON.parse(await readFile(join(dshRoot, 'package.json'), 'utf8'))
   const dshBinEntry = typeof dshManifest.bin === 'string' ? dshManifest.bin : dshManifest.bin?.dsh
-  if (typeof dshBinEntry !== 'string' || dshBinEntry === '') throw new Error('installed dsh package does not declare bin.dsh')
-  return { manifest, pluginRoot, dshBin: resolve(dshRoot, dshBinEntry) }
+  if (typeof dshBinEntry !== 'string') throw new Error('installed dsh package does not declare bin.dsh')
+  const dshBin = resolve(dshRoot, dshBinEntry)
+  // Acquire the actual tarball/Git spec through the target DSH plugin command.
+  await runCommand(process.execPath, [dshBin, 'plugin', '--profile', 'web', 'add', packageSpec], { cwd: smokeProject, env })
+  const pluginRoot = join(env.DSH_HOME, 'profiles', 'web', 'node_modules', manifest.name)
+  const installedManifest = JSON.parse(await readFile(join(pluginRoot, 'package.json'), 'utf8'))
+  if (installedManifest.version !== manifest.version) throw new Error(`compat smoke installed an unexpected plugin version: ${installedManifest.version}`)
+  const installedRoot = await realpath(pluginRoot)
+  if (installedRoot.startsWith(projectRoot + '/')) throw new Error('installed plugin still resolves inside the source checkout')
+  // Shared SDK peers resolve through DSH's installation-aware loader, not raw
+  // Node in this test process. Actual Host boot + strict Remote below proves load.
+  await verifyPackage(installedRoot, { loadRemotes: false })
+  console.log('[compat] acquired prebuilt package independently of checkout/dev dependencies')
+  return { manifest, pluginRoot, dshBin }
 }
 
 const REMOTE_CALL_TIMEOUT_MS = 30_000
@@ -313,7 +312,7 @@ async function bootWeb({ dshBin, projectRoot, env }) {
  * This is intentionally not called an end-to-end ASR test; it does not contact
  * a microphone, ASR model, or download.
  */
-export async function runCompatibilitySmoke({ projectRoot = resolve(fileURLToPath(new URL('..', import.meta.url))), dshVersion, scenario = 'fresh', pnpm = 'pnpm' } = {}) {
+export async function runCompatibilitySmoke({ projectRoot = resolve(fileURLToPath(new URL('..', import.meta.url))), dshVersion = '0.2.2-rc.1', scenario = 'fresh', pnpm = 'pnpm', packageSpec, browser = false } = {}) {
   if (!VERIFIED_DSH_SMOKE_VERSIONS.includes(dshVersion)) {
     throw new Error(`compat smoke requires one of the verified DSH versions: ${VERIFIED_DSH_SMOKE_VERSIONS.join(', ')}`)
   }
@@ -323,12 +322,10 @@ export async function runCompatibilitySmoke({ projectRoot = resolve(fileURLToPat
 
   const smokeHome = await mkdtemp(join(tmpdir(), 'dsh-ears-compat-'))
   const smokeProject = await mkdtemp(join(tmpdir(), 'dsh-ears-compat-project-'))
-  const env = { ...process.env, DSH_HOME: smokeHome, CI: 'true' }
+  const env = { ...process.env, XDG_CACHE_HOME: join(smokeHome, 'cache'), DSH_HOME: smokeHome, CI: 'true' }
   let server
   try {
-    const prepared = await prepareSmokeProject({ projectRoot, smokeProject, dshVersion, pnpm, env })
-    console.log('[compat] registering the packed plugin')
-    await runCommand(pnpm, ['exec', 'dsh', 'plugin', '--profile', 'web', 'add', prepared.pluginRoot], { cwd: smokeProject, env })
+    const prepared = await prepareSmokeProject({ projectRoot, smokeProject, dshVersion, pnpm, env, packageSpec })
     if (scenario !== 'fresh') {
       // The Host imports the removed settings.yaml into the profile entry config
       // once the composition settles. JSON is valid YAML, so no emitter is needed.
@@ -354,6 +351,7 @@ export async function runCompatibilitySmoke({ projectRoot = resolve(fileURLToPat
     let value = await callRemote(baseUrl, cookie, 'dshEars/getSettings', {})
     if (scenario === 'canonical') value = await waitForSettingsValue(baseUrl, cookie, (candidate) => candidate?.settings?.localQwenModel === '0.6b-8bit', 'the seeded Qwen model')
     assertRetainedSettings(value, scenario)
+    if (browser) await probeBrowserFactory(baseUrl, cookie)
 
     // The 0.1.7 settings model derives the form from the exported Config and
     // writes into the profile entry config. The write must apply live and
@@ -401,7 +399,7 @@ if (invokedPath === modulePath) {
     printHelp()
   } else {
     const index = args.indexOf('--dsh-version')
-    const dshVersion = index >= 0 ? args[index + 1] : undefined
+    const dshVersion = index >= 0 ? args[index + 1] : '0.2.2-rc.1'
     const scenarioIndex = args.indexOf('--scenario')
     const scenario = scenarioIndex >= 0 ? args[scenarioIndex + 1] : undefined
     // Every scenario runs by default so a certification pass covers the fresh
@@ -409,7 +407,7 @@ if (invokedPath === modulePath) {
     const scenarios = scenario === undefined ? SMOKE_SCENARIOS : [scenario]
     try {
       for (const selected of scenarios) {
-        const result = await runCompatibilitySmoke({ dshVersion, scenario: selected })
+        const result = await runCompatibilitySmoke({ dshVersion, scenario: selected, browser: true })
         console.log(`Compatibility smoke passed for dsh ${result.dshVersion} (${result.scenario}): Client asset served, getSettings returned a Qwen-only view, and a settings write survived a restart`)
       }
     } catch (error) {

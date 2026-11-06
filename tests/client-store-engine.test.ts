@@ -2,22 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { createSnapshotStore, shallowEqual } from '@deepseek-ai/dsh-client-store'
 import { EarsSettingsController } from '../src/client/settings-controller.js'
 
-/**
- * These cases intentionally do NOT mock `@deepseek-ai/dsh-client-store`.
- *
- * dsh-ears bundles that package into `lib/client.js`, and the package declares
- * no Zustand/Immer dependency of its own (D-052), so the bundled engine is
- * whichever versions this repository installs. `settings.test.ts` and
- * the Qwen settings tests replace the module with a stub, and the
- * compatibility smoke only checks that `lib/client.js` is served, so every
- * other suite would stay green even if the engine itself broke. These cases
- * execute the real engine so `zustand` and `immer` upgrades stay covered.
- *
- * The engine is React-free: `createSnapshotStore` is zustand's vanilla store
- * extended with `subscribeWithSelector`, an immer-backed draft update, and a
- * deep freeze applied to every `set` (`devFreeze` upstream — the name says dev,
- * but nothing gates it at build time).
- */
+/** Execute the target Host store rather than a test stub. Ears consumes its
+ * observable/set/update contract; development freeze policy belongs to DSH. */
 
 interface PanelState {
   status: 'loading' | 'ready'
@@ -36,7 +22,7 @@ function initialPanel(): PanelState {
   }
 }
 
-describe('bundled snapshot-store engine', () => {
+describe('Host platform snapshot-store engine', () => {
   it('publishes the initial snapshot, notifies on set, and stops after unsubscribe', () => {
     const store = createSnapshotStore(initialPanel())
     let notifications = 0
@@ -58,28 +44,6 @@ describe('bundled snapshot-store engine', () => {
     unsubscribe()
     store.set(initialPanel())
     expect(notifications).toBe(1)
-  })
-
-  it('deep-freezes engine state and leaves earlier snapshots untouched', () => {
-    const store = createSnapshotStore(initialPanel())
-    const before = store.getSnapshot()
-    const next: PanelState = {
-      status: 'ready',
-      rows: [{ id: 'b', label: 'second', selected: true }],
-      meta: { revisions: 2 }
-    }
-
-    store.set(next)
-    const after = store.getSnapshot()
-
-    expect(Object.isFrozen(after)).toBe(true)
-    expect(Object.isFrozen(after.rows)).toBe(true)
-    expect(Object.isFrozen(after.rows[0])).toBe(true)
-    expect(() => {
-      ;(after.rows as { id: string }[])[0] = { id: 'mutated' }
-    }).toThrow()
-    expect(before).toEqual(initialPanel())
-    expect(after).not.toBe(before)
   })
 
   it('skips notification when a set repeats the current value', () => {
@@ -187,7 +151,6 @@ describe('bundled snapshot-store engine', () => {
     const controller = new EarsSettingsController({} as never)
     const snapshot = controller.getSettingsStore().getSnapshot()
     expect(snapshot.localQwenModel).toBe('1.7b-8bit')
-    expect(Object.isFrozen(snapshot)).toBe(true)
     expect(controller.getCardStore().getSnapshot().localQwenPrompt.text).toBe('')
     controller.dispose()
   })

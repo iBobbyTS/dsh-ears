@@ -12,9 +12,9 @@ export default defineConfig([
     outDir: 'lib',
     format: 'esm',
     platform: 'node',
-    target: 'es2022',
-    dts: true,
-    clean: true,
+    target: 'node22',
+    dts: false,
+    clean: false,
     sourcemap: true,
     outExtensions: () => ({
       js: '.js',

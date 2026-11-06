@@ -6,19 +6,7 @@ import { transform } from 'lightningcss'
 const CSS_VIRTUAL_PREFIX = '\0dsh-css:'
 const CSS_VIRTUAL_SUFFIX = '.mjs'
 
-const CLIENT_EXTERNALS = [
-  'react',
-  'react/jsx-runtime',
-  'react-dom',
-  'react-dom/client',
-  '@deepseek-ai/cordis',
-  '@deepseek-ai/dsh-api-remotes/client',
-  '@deepseek-ai/dsh-client-locale/client',
-  '@deepseek-ai/dsh-client-ui-slots',
-  '@deepseek-ai/dsh-client-ui-primitives',
-  '@deepseek-ai/dsh-client-ui-settings',
-  '@deepseek-ai/dsh-client-ui-settings-plugins'
-] as const
+import { CLIENT_EXTERNALS } from './scripts/browser-modules.mjs'
 
 export function clientBundle(id: string, entry: string): UserConfig {
   return {
@@ -34,9 +22,10 @@ export function clientBundle(id: string, entry: string): UserConfig {
     },
     dts: false,
     sourcemap: true,
+    // Omit bundler region comments that encode a symlink's physical build path.
+    minify: { mangle: false, compress: false },
     clean: false,
-    external: [...CLIENT_EXTERNALS],
-    noExternal: (specifier: string) => (CLIENT_EXTERNALS.includes(specifier as typeof CLIENT_EXTERNALS[number]) ? undefined : true),
+    deps: { onlyBundle: false, neverBundle: [...CLIENT_EXTERNALS], alwaysBundle: (specifier) => !CLIENT_EXTERNALS.includes(specifier) },
     plugins: [
       {
         name: 'dsh-css-modules-inline',
@@ -54,13 +43,13 @@ export function clientBundle(id: string, entry: string): UserConfig {
           this.addWatchFile(filePath)
           const source = await readFile(filePath)
           const result = transform({
-            filename: filePath,
+            filename: relativePath,
             code: source,
             cssModules: { pattern: '[hash]_[local]' },
             minify: true
           })
           const classMap: Record<string, string> = {}
-          for (const [localName, exported] of Object.entries(result.exports ?? {})) {
+          for (const [localName, exported] of Object.entries(result.exports ?? {}).sort(([left], [right]) => left.localeCompare(right))) {
             classMap[localName] = exported.name
           }
 
@@ -83,6 +72,11 @@ export function clientBundle(id: string, entry: string): UserConfig {
     ],
     outputOptions: {
       entryFileNames: 'client.js',
+      sourcemapPathTransform: (source) => {
+        const normalized = source.replaceAll('\\', '/')
+        const moduleAt = normalized.lastIndexOf('/node_modules/')
+        return moduleAt < 0 ? normalized : '../node_modules/' + normalized.slice(moduleAt + '/node_modules/'.length)
+      },
       intro: 'var module = { exports: {} }; var exports = module.exports;',
       banner: `window.__ModuleLoader__.load({ id: ${JSON.stringify(id)}, factory: (require) => {`,
       footer: 'return module.exports; } });'

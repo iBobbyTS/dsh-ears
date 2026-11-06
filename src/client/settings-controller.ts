@@ -2,7 +2,7 @@ import { createSnapshotStore, type SnapshotStore } from '@deepseek-ai/dsh-client
 import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots'
 import { DEFAULT_EARS_SETTINGS, type EarsSettings } from '../config.js'
 import { isSettingsFieldInvalid, type FieldName } from './settings-fields.js'
-import type { EarsSettingsView, AboutInfo, UpdateCheckResult } from '../remote-contract.js'
+import type { EarsSettingsView, AboutInfo } from '../remote-contract.js'
 import type { EarsRemote } from '../remote.js'
 import { SettingsDraftController } from './settings-draft-controller.js'
 export type { FieldName } from './settings-fields.js'
@@ -35,7 +35,7 @@ export class EarsSettingsController {
   getCardStore(): SnapshotStore<EarsCardState> { return this.cardStore }
   actions() { return {
     edit: (field: FieldName, text: string) => this.edit(field, text), flush: () => void this.save(),
-    save: () => void this.save(), discard: () => this.discard(), loadAbout: () => this.loadAbout(), checkForUpdate: () => this.checkForUpdate()
+    save: () => void this.save(), discard: () => this.discard(), loadAbout: () => this.loadAbout()
   } }
   dispose(): void {
     this.disposed = true
@@ -79,17 +79,6 @@ export class EarsSettingsController {
     if (this.disposed) return null
     const result = await this.remote.getAbout()
     return result.ok ? result.value : null
-  }
-
-  async checkForUpdate(): Promise<UpdateCheckResult> {
-    const fallback: UpdateCheckResult = {
-      status: 'error',
-      installed: '',
-      latest: null
-    }
-    if (this.disposed) return fallback
-    const result = await this.remote.checkForUpdate()
-    return result.ok ? result.value : fallback
   }
 
   private edit(field: FieldName, text: string): void {

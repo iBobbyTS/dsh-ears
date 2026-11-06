@@ -3,11 +3,11 @@ import type { Context } from '@deepseek-ai/cordis'
 import { remoteErrorOf, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import type { SettingsForms } from '@deepseek-ai/dsh-settings'
 import { DEFAULT_EARS_SETTINGS, repairInvalidEarsSettings, validateEarsSettings, type EarsSettings } from '../config.js'
-import { Qwen3Runtime, Qwen3RealtimeAsrSession, type Qwen3ModelState } from './qwen3-runtime.js'
-import { remoteTextFailure, remoteTextSuccess, type EarsSettingsPatch, type EarsSettingsView, type RemoteTextResult, type AboutInfo, type UpdateCheckResult } from '../remote-contract.js'
+import { Qwen3Runtime, Qwen3RealtimeAsrSession } from './qwen3-runtime.js'
+import { remoteTextFailure, remoteTextSuccess, type EarsSettingsPatch, type EarsSettingsView, type RemoteTextResult, type AboutInfo, type Qwen3ModelState } from '../remote-contract.js'
 import { applyFlatSettingsPatchWithSettings, flatSettingsPatchToStoredPatch, flattenOverriddenSettings, flattenStoredSettings, unflattenEarsSettings } from '../settings-store.js'
 import { findEarsSettingsForm, readEarsSettingsRaw, replaceEarsSettingsSection, updateEarsSettingsPatch } from '../settings/host-settings.js'
-import { checkForPluginUpdate, readInstalledAboutInfo } from '../about.js'
+import { readInstalledAboutInfo } from '../about.js'
 import { EARS_ERROR_CODES, EarsError, earsErrorCode, earsErrorParams, sanitizeEarsErrorParams, sanitizeEarsErrorText, type EarsErrorCode } from '../errors.js'
 const REALTIME_SESSION_IDLE_TIMEOUT_MS = 60_000
 interface GenericRealtimeAsrSession {
@@ -77,11 +77,6 @@ export class QwenService extends TypertRemoteService {
 
   getAbout(): AboutInfo {
     return readInstalledAboutInfo()
-  }
-
-  async checkForUpdate(signal: AbortSignal): Promise<UpdateCheckResult> {
-    signal.throwIfAborted()
-    return checkForPluginUpdate({ installed: readInstalledAboutInfo().version, signal })
   }
 
   async startRealtime(signal: AbortSignal): Promise<{ sessionId: string }> {

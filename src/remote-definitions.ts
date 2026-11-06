@@ -1,5 +1,5 @@
 import type { TypertCodec, TypertSchema } from '@deepseek-ai/dsh-typert-protocol'
-import { qwenModelStateSchema, aboutInfoSchema, audioBase64Schema, earsSettingsPatchSchema, earsSettingsViewSchema, realtimeCancelledSchema, realtimeSessionSchema, realtimeTranscriptSchema, remoteTextResultSchema, textSchema, updateCheckResultSchema } from './remote-contract.js'
+import { qwenModelStateSchema, aboutInfoSchema, audioBase64Schema, earsSettingsPatchSchema, earsSettingsViewSchema, realtimeCancelledSchema, realtimeSessionSchema, realtimeTranscriptSchema, remoteTextResultSchema, textSchema } from './remote-contract.js'
 
 /**
  * One strict wire codec over a zod v4 schema.
@@ -27,16 +27,6 @@ export const EARS_REMOTE_DESCRIPTORS = [
     invocation: { kind: 'direct' },
     parameters: [],
     result: strictCodec('dsh-ears#AboutInfo', aboutInfoSchema)
-  },
-  {
-    id: 'dsh-ears#dshEars/checkForUpdate',
-    service: 'dshEarsQwen',
-    namespace: 'dshEars',
-    method: 'checkForUpdate',
-    invocation: { kind: 'direct' },
-    parameters: [],
-    cancellation: { parameter: 'signal' },
-    result: strictCodec('dsh-ears#UpdateCheckResult', updateCheckResultSchema)
   },
   {
     id: 'dsh-ears#dshEars/getSettings',

@@ -1,14 +1,13 @@
 import type { RemoteResult, TypertRemoteContribution } from '@deepseek-ai/dsh-typert-protocol'
 import type { ClientRemote } from '@deepseek-ai/dsh-api-remotes/client'
 import { EARS_REMOTE_DESCRIPTORS } from './remote-definitions.js'
-import type { AboutInfo, EarsSettingsPatch, EarsSettingsView, RealtimeSession, RealtimeTranscript, RemoteTextResult, UpdateCheckResult, Qwen3ModelState } from './remote-contract.js'
+import type { AboutInfo, EarsSettingsPatch, EarsSettingsView, RealtimeSession, RealtimeTranscript, RemoteTextResult, Qwen3ModelState } from './remote-contract.js'
 
 export type EarsRemote = ClientRemote['dshEars']
 
 declare module '@deepseek-ai/dsh-typert-protocol' {
   interface TypertRemoteNamespace$dshEars {
     getAbout: () => Promise<RemoteResult<AboutInfo>>
-    checkForUpdate: (signal?: AbortSignal) => Promise<RemoteResult<UpdateCheckResult>>
     getSettings: () => Promise<RemoteResult<EarsSettingsView>>
     updateSettings: (patch: EarsSettingsPatch, signal?: AbortSignal) => Promise<RemoteResult<EarsSettingsView>>
     getQwenModelState: (model: string) => Promise<RemoteResult<Qwen3ModelState>>
@@ -25,7 +24,6 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
 
   interface TypertRemoteMap {
     'dshEars/getAbout': () => Promise<RemoteResult<AboutInfo>>
-    'dshEars/checkForUpdate': (signal?: AbortSignal) => Promise<RemoteResult<UpdateCheckResult>>
     'dshEars/getSettings': () => Promise<RemoteResult<EarsSettingsView>>
     'dshEars/updateSettings': (patch: EarsSettingsPatch, signal?: AbortSignal) => Promise<RemoteResult<EarsSettingsView>>
     'dshEars/getQwenModelState': (model: string) => Promise<RemoteResult<Qwen3ModelState>>

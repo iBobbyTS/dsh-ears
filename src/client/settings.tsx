@@ -7,7 +7,7 @@ import Github from '@thesvg/react/github'
 import { QWEN3_MODELS, DEFAULT_EARS_SETTINGS, settingsPageLabel, type EarsSettings } from '../config.js'
 import { EMPTY_SHORTCUT_RECORDER, formatModifierChord, formatShortcut, isReservedShortcut, reduceShortcutRecorder, shortcutRejectReason } from '../shortcut.js'
 import type { ShortcutModifier, ShortcutRecorderInput } from '../shortcut.js'
-import type { AboutInfo, UpdateCheckResult, Qwen3ModelState } from '../remote-contract.js'
+import type { AboutInfo, Qwen3ModelState } from '../remote-contract.js'
 import type { EarsRemote } from '../remote.js'
 import type { EarsCardHook, EarsSettingsHook, FieldName } from './settings-controller.js'
 import type { Translate } from './settings-locale.js'
@@ -21,7 +21,6 @@ interface EarsSettingsSectionProps {
   readonly edit: (field: FieldName, text: string) => void
   readonly flush: () => void
   readonly loadAbout: () => Promise<AboutInfo | null>
-  readonly checkForUpdate: () => Promise<UpdateCheckResult>
 }
 export function createSnapshotHook<T>(store: SnapshotStore<T>, fallback: T): SnapshotSelectorHook<T> {
   return function useSnapshotStore<S>(selector: (value: T) => S): S {
@@ -100,16 +99,15 @@ export function EarsSettingsSection(props: EarsSettingsSectionProps): ReactNode 
         </div>
       ) : (
         <div id={`${tabsId}-panel-about`} role="tabpanel" aria-labelledby={`${tabsId}-tab-about`} className={styles.panel}>
-          <AboutPanel t={t} loadAbout={props.loadAbout} checkForUpdate={props.checkForUpdate} />
+          <AboutPanel t={t} loadAbout={props.loadAbout} />
         </div>
       )}
     </section>
   )
 }
 
-function AboutPanel({ t, loadAbout, checkForUpdate }: { t: Translate; loadAbout: () => Promise<AboutInfo | null>; checkForUpdate: () => Promise<UpdateCheckResult> }) {
+function AboutPanel({ t, loadAbout }: { t: Translate; loadAbout: () => Promise<AboutInfo | null> }) {
   const [about, setAbout] = useState<AboutInfo | null>(null)
-  const [check, setCheck] = useState<UpdateCheckResult | { status: 'idle' } | { status: 'checking' }>({ status: 'idle' })
   const loadAboutRef = useRef(loadAbout)
   loadAboutRef.current = loadAbout
   useEffect(() => {
@@ -121,18 +119,6 @@ function AboutPanel({ t, loadAbout, checkForUpdate }: { t: Translate; loadAbout:
       cancelled = true
     }
   }, [])
-  const checkHint = check.status === 'checking'
-    ? t('aboutChecking')
-    : check.status === 'up-to-date'
-      ? t('aboutUpToDate')
-      : check.status === 'update-available'
-        ? t('aboutUpdateAvailable', { version: check.latest ?? '' }).trim()
-        : check.status === 'unpublished'
-          ? t('aboutUnpublished')
-          : check.status === 'error'
-            ? t('aboutCheckFailed')
-            : ''
-  const checkAlert = check.status === 'unpublished' || check.status === 'error'
   return (
     <>
       <RowField label={t('aboutRepository')} hint="">
@@ -146,20 +132,8 @@ function AboutPanel({ t, loadAbout, checkForUpdate }: { t: Translate; loadAbout:
       <ValueRow label={t('aboutVersion')} value={about?.version ?? '—'} />
       <ValueRow label={t('aboutLicense')} value={about?.license ?? '—'} />
       <ValueRow label={t('aboutCompat')} value={about?.dshCompatibility ?? '—'} />
-      <RowField label={t('aboutCheck')} hint={checkHint} invalid={checkAlert} alert={checkAlert}>
-        <div className={styles.aboutActions}>
-          <button
-            type="button"
-            className={styles.linkButton}
-            disabled={check.status === 'checking'}
-            onClick={() => {
-              setCheck({ status: 'checking' })
-              void checkForUpdate().then((result) => setCheck(result))
-            }}
-          >
-            {check.status === 'checking' ? t('aboutChecking') : t('aboutCheckAction')}
-          </button>
-        </div>
+      <RowField label={t('aboutUpdates')} hint={t('aboutUpdatesHint')}>
+        {about === null ? null : <a className={styles.linkButton} href={`${about.repository}#install`} target="_blank" rel="noreferrer">{t('aboutUpdatesLink')}</a>}
       </RowField>
     </>
   )
