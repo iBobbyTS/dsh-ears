@@ -6,6 +6,10 @@ Voice input, live transcription, and optional LLM polishing for DSH Web UI and D
 
 This is a fork of [WizisCool/dsh-ears](https://github.com/WizisCool/dsh-ears). Build the checkout below to install this fork; the upstream npm package and the in-app upstream npm version information do not contain this fork's changes.
 
+## Compatibility
+
+Verified: DSH 0.2.2-rc.1 (source review and automated checks); Desktop testing has not been completed.
+
 ## Install
 
 Requires DSH, Node.js `^22.19.0 || >=24.0.0`, and the pnpm version in `package.json`. On macOS:
@@ -34,8 +38,6 @@ Choose a backend on the dsh-ears settings page. Start/stop with the Composer mic
 - Local Qwen requires Apple Silicon macOS and discoverable Python 3.10+. Install its environment/model in Recognition settings, then record directly without a separate server. First-time downloads need PyPI/Hugging Face access.
 - Whisper downloads GGML models in settings and uses the bundled native runtime without Python/FFmpeg.
 - Web Speech may be processed by the browser vendor. Cloud backends require credentials. Optional polishing uses a configured DSH model and incurs usage.
-
-DSH 0.2.2-rc.1 has source-contract and automated verification. These results do not establish a real Desktop, microphone, or M4 Max end-to-end result.
 
 ## Documentation
 

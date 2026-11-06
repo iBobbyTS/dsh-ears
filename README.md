@@ -6,6 +6,10 @@
 
 这是 [WizisCool/dsh-ears](https://github.com/WizisCool/dsh-ears) 的 fork。安装本 fork 需要从以下 checkout 构建；上游 npm 包及应用内上游 npm 版本信息不包含本 fork 的改动。
 
+## 兼容性
+
+已验证：DSH 0.2.2-rc.1（源码与自动化检查）；尚未完成 Desktop 实测。
+
 ## 安装
 
 需要 DSH、Node.js `^22.19.0 || >=24.0.0` 和 `package.json` 指定的 pnpm。macOS 直接运行：
@@ -34,8 +38,6 @@ Windows cmd 请使用完整路径。重启 DSH Host 并刷新页面。更新时�
 - 本地 Qwen：要求 Apple Silicon macOS、可发现的 Python 3.10+。在识别设置中安装运行环境和模型后直接录音，无需单独启动服务器；首次下载需要 PyPI/Hugging Face 网络。
 - Whisper：在设置中下载 GGML 模型，使用内置 native runtime，无需 Python/FFmpeg。
 - Web Speech 可能由浏览器厂商远端处理；云端后端需要相应凭据。模型润色使用 DSH 已配置的模型并产生用量。
-
-DSH 0.2.2-rc.1 已做源码合同核对和自动化验证；这些结果不代表已完成真实 Desktop、麦克风或 M4 Max 端到端验收。
 
 ## 文档
 
