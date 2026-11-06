@@ -1,6 +1,6 @@
 {
   "meta": {
     "title": "dsh-ears",
-    "description": "Dictate into the composer, then polish the text through a dsh model before sending"
+    "description": "Local Qwen3-ASR MLX dictation into an editable draft for manual sending"
   }
 }

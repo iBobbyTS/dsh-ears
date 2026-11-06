@@ -15,7 +15,7 @@ type VoiceRecognitionBarProps = {
 type PresentationPhase = 'hidden' | 'visible' | 'exiting'
 
 type DisplayState = {
-  readonly state: 'starting' | 'recording' | 'transcribing' | 'polishing' | 'error' | 'polish-error' | 'upstream-error'
+  readonly state: 'starting' | 'recording' | 'transcribing' | 'error' | 'upstream-error'
   readonly levels: readonly number[]
   readonly detail: string
   readonly detailCode?: string
@@ -58,9 +58,9 @@ export function VoiceRecognitionBar({ voiceSession, t: slotT, earsT }: VoiceReco
   if (phase === 'hidden') return null
 
   const display = active ? { state, levels, detail, ...(detailCode === undefined ? {} : { detailCode }), ...(detailParams === undefined ? {} : { detailParams }) } : lastDisplayRef.current
-  const processing = display.state === 'transcribing' || display.state === 'polishing'
+  const processing = display.state === 'transcribing'
   const label = statusLabel(display, t)
-  const notice = display.state === 'error' || display.state === 'polish-error' || display.state === 'upstream-error'
+  const notice = display.state === 'error' || display.state === 'upstream-error'
   const action = recognitionBarAction(display.state)
   const actionLabel = action === 'stop' ? t('voiceStop') : action === 'discard' ? t('voiceDiscard') : t('voiceBusy')
 
@@ -103,5 +103,5 @@ function Waveform({ levels }: { readonly levels: readonly number[] }) {
 }
 
 function isVisibleState(state: string): state is DisplayState['state'] {
-  return state === 'starting' || state === 'recording' || state === 'transcribing' || state === 'polishing' || state === 'error' || state === 'polish-error' || state === 'upstream-error'
+  return state === 'starting' || state === 'recording' || state === 'transcribing' || state === 'error' || state === 'upstream-error'
 }

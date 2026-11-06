@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
-  WHISPER_SAMPLE_RATE,
+  PCM_SAMPLE_RATE,
   audioToPcm16Wav,
   encodePcm16Wav,
   float32PcmToPcm16Wav,
-  normalizeToWhisperPcm,
+  normalizeToMonoPcm,
   type AudioBufferLike
 } from '../src/asr/pcm-wav.js'
 
@@ -42,9 +42,9 @@ function readHeader(wav: Uint8Array): {
   }
 }
 
-describe('normalizeToWhisperPcm', () => {
+describe('normalizeToMonoPcm', () => {
   it('downmixes channels and linearly resamples to 16 kHz', () => {
-    const normalized = normalizeToWhisperPcm({
+    const normalized = normalizeToMonoPcm({
       sampleRate: 8_000,
       channelData: [
         Float32Array.from([0, 1, 0, -1]),
@@ -65,7 +65,7 @@ describe('normalizeToWhisperPcm', () => {
   })
 
   it('uses the duration-based frame count for one second of 48 kHz audio', () => {
-    const normalized = normalizeToWhisperPcm({
+    const normalized = normalizeToMonoPcm({
       sampleRate: 48_000,
       channelData: [new Float32Array(48_000)]
     })
@@ -74,8 +74,8 @@ describe('normalizeToWhisperPcm', () => {
   })
 
   it('averages finite channel values before clipping the mono sample', () => {
-    const normalized = normalizeToWhisperPcm({
-      sampleRate: WHISPER_SAMPLE_RATE,
+    const normalized = normalizeToMonoPcm({
+      sampleRate: PCM_SAMPLE_RATE,
       channelData: [Float32Array.from([2]), Float32Array.from([0])]
     })
 
@@ -83,8 +83,8 @@ describe('normalizeToWhisperPcm', () => {
   })
 
   it('clips finite samples and turns NaN or infinities into silence', () => {
-    const normalized = normalizeToWhisperPcm({
-      sampleRate: WHISPER_SAMPLE_RATE,
+    const normalized = normalizeToMonoPcm({
+      sampleRate: PCM_SAMPLE_RATE,
       channelData: [Float32Array.from([-2, Number.NaN, Number.POSITIVE_INFINITY, 2])]
     })
 
@@ -94,23 +94,23 @@ describe('normalizeToWhisperPcm', () => {
   it('accepts an AudioBuffer-like source without importing DOM types', () => {
     const samples = Float32Array.from([0.25, -0.25])
     const audioBuffer: AudioBufferLike = {
-      sampleRate: WHISPER_SAMPLE_RATE,
+      sampleRate: PCM_SAMPLE_RATE,
       length: samples.length,
       numberOfChannels: 1,
       getChannelData: () => samples
     }
 
-    expect(Array.from(normalizeToWhisperPcm(audioBuffer))).toEqual([0.25, -0.25])
+    expect(Array.from(normalizeToMonoPcm(audioBuffer))).toEqual([0.25, -0.25])
   })
 
   it('returns an empty PCM array for empty input', () => {
-    expect(normalizeToWhisperPcm({ sampleRate: 48_000, channelData: [] })).toHaveLength(0)
-    expect(normalizeToWhisperPcm({ sampleRate: 48_000, channelData: [new Float32Array()] })).toHaveLength(0)
+    expect(normalizeToMonoPcm({ sampleRate: 48_000, channelData: [] })).toHaveLength(0)
+    expect(normalizeToMonoPcm({ sampleRate: 48_000, channelData: [new Float32Array()] })).toHaveLength(0)
   })
 
   it('rejects malformed sample rates and channel lengths', () => {
-    expect(() => normalizeToWhisperPcm({ sampleRate: 0, channelData: [] })).toThrow(RangeError)
-    expect(() => normalizeToWhisperPcm({ sampleRate: 48_000, channelData: [new Float32Array(1), new Float32Array(2)] })).toThrow(RangeError)
+    expect(() => normalizeToMonoPcm({ sampleRate: 0, channelData: [] })).toThrow(RangeError)
+    expect(() => normalizeToMonoPcm({ sampleRate: 48_000, channelData: [new Float32Array(1), new Float32Array(2)] })).toThrow(RangeError)
   })
 })
 
@@ -147,8 +147,8 @@ describe('PCM16 WAV encoding', () => {
   })
 
   it('does not require an intermediate full-size PCM copy for a 120 second input', () => {
-    const samples = new Float32Array(120 * WHISPER_SAMPLE_RATE)
-    const wav = audioToPcm16Wav({ sampleRate: WHISPER_SAMPLE_RATE, channelData: [samples] })
+    const samples = new Float32Array(120 * PCM_SAMPLE_RATE)
+    const wav = audioToPcm16Wav({ sampleRate: PCM_SAMPLE_RATE, channelData: [samples] })
 
     expect(wav.length).toBe(44 + samples.length * 2)
     expect(readHeader(wav)).toMatchObject({ sampleRate: 16_000, dataSize: samples.length * 2 })

@@ -14,10 +14,8 @@ export function statusLabel(display: VoiceStatusDisplay, t: Translate): string {
   if (display.state === 'starting') return t('voiceStarting')
   if (display.state === 'recording') return t('voiceRecording')
   if (display.state === 'transcribing') return t('voiceTranscribing')
-  if (display.state === 'polishing') return t('voicePolishing')
   const detail = localizedErrorText(t, display.detailCode, display.detail || t('voiceError'), display.detailParams)
   if (display.state === 'upstream-error') return t('voiceUpstreamAsr', { detail })
-  if (display.state === 'polish-error') return t('voiceUpstreamPolish', { detail })
   if (display.state === 'error') return detail
   return t('voiceError')
 }
@@ -44,30 +42,12 @@ const EMPTY_ERROR_CODES = new Set<string>([
 ])
 
 const CONFIG_ERROR_CODES = new Set<string>([
-  EARS_ERROR_CODES.whisperNativeUnavailable,
-  EARS_ERROR_CODES.whisperRestartRequired,
-  EARS_ERROR_CODES.whisperModelUnknown,
-  EARS_ERROR_CODES.whisperModelUnverified,
-  EARS_ERROR_CODES.whisperModelNotDownloaded,
-  EARS_ERROR_CODES.whisperStateQueryFailed,
-  EARS_ERROR_CODES.backendWebSpeechUnavailable,
-  EARS_ERROR_CODES.backendLocalUnavailable,
-  EARS_ERROR_CODES.backendCloudUnavailable,
-  EARS_ERROR_CODES.asrModelNotConfigured,
-  EARS_ERROR_CODES.asrModelUnsupported,
-  EARS_ERROR_CODES.asrModelNotFound,
-  EARS_ERROR_CODES.asrApiKeyNotConfigured,
-  EARS_ERROR_CODES.asrEndpointInvalid,
-  EARS_ERROR_CODES.asrEndpointHasCredentials,
-  EARS_ERROR_CODES.asrProviderUnknown,
-  EARS_ERROR_CODES.asrUnsupportedBackend,
+  EARS_ERROR_CODES.settingsUnavailable,
   EARS_ERROR_CODES.browserMediaUnavailable
 ])
 
 const CONFIG_MARKERS = [
   'is not configured',
-  'must use http',
-  'must not contain credentials',
   'unknown dsh-ears',
   'unavailable in this browser',
   'not-allowed',
@@ -111,18 +91,6 @@ export function failureMessage(error: unknown): string {
   if (typeof error === 'string') return error
   if (error instanceof Error) return error.message
   return ''
-}
-
-export const MIN_RECORDING_MS = 400
-export const MIN_AUDIO_BYTES = 512
-
-export function isTrivialRecording(byteLength: number, durationMs: number): boolean {
-  return durationMs < MIN_RECORDING_MS || byteLength < MIN_AUDIO_BYTES
-}
-
-export function base64ByteLength(value: string): number {
-  const padding = value.endsWith('==') ? 2 : value.endsWith('=') ? 1 : 0
-  return Math.max(0, Math.floor(value.length * 3 / 4) - padding)
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

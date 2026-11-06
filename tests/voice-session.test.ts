@@ -33,10 +33,9 @@ describe('VoiceInputSession', () => {
     expect(session.getSnapshot().levels).toEqual([])
   })
 
-  it('uses stop while recording and discard while transcribing or polishing', () => {
+  it('uses stop while recording and discard while transcribing', () => {
     expect(recognitionBarAction('recording')).toBe('stop')
     expect(recognitionBarAction('transcribing')).toBe('discard')
-    expect(recognitionBarAction('polishing')).toBe('discard')
     expect(recognitionBarAction('starting')).toBe('busy')
     expect(recognitionBarAction('idle')).toBe('busy')
     expect(recognitionBarAction('error')).toBe('busy')
@@ -57,7 +56,7 @@ describe('VoiceInputSession', () => {
     expect(stop).toHaveBeenCalledOnce()
   })
 
-  it('discards an in-flight transcribe or polish and returns to idle', () => {
+  it('discards an in-flight transcription and returns to idle', () => {
     const session = new VoiceInputSession()
     const cancel = vi.fn()
     session.onCancelRequested(cancel)
@@ -74,13 +73,9 @@ describe('VoiceInputSession', () => {
     expect(session.isCurrentEpoch(epoch)).toBe(false)
     expect(session.getSnapshot()).toEqual({ state: 'idle', levels: [], detail: '' })
 
-    session.setState('polishing')
-    session.requestCancel()
-    expect(cancel).toHaveBeenCalledTimes(2)
-    expect(session.getSnapshot().state).toBe('idle')
   })
 
-  it.each(['starting', 'recording', 'transcribing', 'polishing'] as const)('ends %s on submit while preserving the draft and invalidating old work', (state) => {
+  it.each(['starting', 'recording', 'transcribing'] as const)('ends %s on submit while preserving the draft and invalidating old work', (state) => {
     const session = new VoiceInputSession()
     const cancel = vi.fn()
     session.onCancelRequested(cancel)
@@ -117,7 +112,7 @@ describe('VoiceInputSession', () => {
   it('cancels the error dismiss timer when a new recording starts', () => {
     vi.useFakeTimers()
     const session = new VoiceInputSession()
-    session.setState('polish-error')
+    session.setState('upstream-error')
     session.setState('recording')
     vi.advanceTimersByTime(VOICE_ERROR_DISMISS_MS)
     expect(session.getSnapshot().state).toBe('recording')

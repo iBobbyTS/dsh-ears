@@ -2,7 +2,7 @@
 
 中文 · [English](README.en.md)
 
-为 DSH Web UI 和 Desktop 提供语音输入、实时转写及可选 LLM 润色；结果写入可编辑草稿，由用户手动发送。支持浏览器 Web Speech、本地 Whisper、Apple Silicon 上的本地 Qwen3-ASR MLX，以及多种云端 ASR。
+为 DSH Web UI 和 Desktop 提供本地 Qwen3-ASR MLX 语音输入与实时转写；结果写入可编辑草稿，由用户手动发送。需要 Apple Silicon macOS。
 
 这是 [WizisCool/dsh-ears](https://github.com/WizisCool/dsh-ears) 的 fork。安装本 fork 需要从以下 checkout 构建；上游 npm 包及应用内上游 npm 版本信息不包含本 fork 的改动。
 
@@ -33,11 +33,9 @@ Windows cmd 请使用完整路径。重启 DSH Host 并刷新页面。更新时�
 
 ## 使用
 
-在设置的 dsh-ears 页面选择识别后端，点击 Composer 麦克风或按 `Ctrl+Shift+Space` 开始/停止。检查草稿后手动发送；人工修改会被保留。
+点击 Composer 麦克风或按 `Ctrl+Shift+Space` 开始/停止，检查草稿后手动发送。在识别设置中配置模型、上下文提示和空闲卸载时间。
 
-- 本地 Qwen：要求 Apple Silicon macOS、可发现的 Python 3.10+。在识别设置中安装运行环境和模型后直接录音，无需单独启动服务器；首次下载需要 PyPI/Hugging Face 网络。
-- Whisper：在设置中下载 GGML 模型，使用内置 native runtime，无需 Python/FFmpeg。
-- Web Speech 可能由浏览器厂商远端处理；云端后端需要相应凭据。模型润色使用 DSH 已配置的模型并产生用量。
+本地 Qwen 要求 Apple Silicon macOS、可发现的 Python 3.10+。在识别设置中安装运行环境和模型后直接录音，无需单独启动服务器；首次下载需要 PyPI/Hugging Face 网络，推理在本地执行。
 
 ## 文档
 

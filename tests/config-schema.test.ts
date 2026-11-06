@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 import { EarsSettingsSchema } from '../src/config-schema.js'
 import { DSH_COMPATIBILITY } from '../src/about.js'
 import { EARS_SETTINGS_SCHEMA_VERSION, DEFAULT_EARS_SETTINGS, SETTINGS_NAMESPACE } from '../src/config.js'
-import { CLOUD_ASR_PROVIDERS } from '../src/asr/providers.js'
 import { defaultStoredEarsSettings, flattenStoredSettings, unflattenEarsSettings } from '../src/settings-store.js'
 import { findEarsSettingsForm, readEarsSettingsRaw, replaceEarsSettingsSection, updateEarsSettingsPatch } from '../src/settings/host-settings.js'
 import { createFakeSettingsForms } from './helpers/settings-forms.js'
@@ -57,11 +56,11 @@ describe('exported plugin Config', () => {
     }
   })
 
-  it('keeps the credential fields secret so dsh redacts them on the wire', () => {
-    for (const provider of CLOUD_ASR_PROVIDERS) {
-      const leaf = leaves.find((candidate) => candidate.path.join('.') === `cloudAsr.${provider.storageKey}.${provider.fields.find((field) => field.field === provider.credentialField)?.storageKey}`)
-      expect(leaf?.leaf.meta.role, provider.id).toBe('secret')
-    }
+  it('declares only Qwen and general settings', () => {
+    expect(leaves.map(({ path }) => path.join('.')).sort()).toEqual([
+      'schemaVersion', 'general.displayName', 'general.shortcut.enabled', 'general.shortcut.value', 'general.soundsEnabled',
+      'recognition.localQwen.model', 'recognition.localQwen.idleTtlMinutes', 'recognition.localQwen.prompt', 'recognition.maxRecordingSeconds'
+    ].sort())
   })
 
   it('resolves the shipped defaults without a stored document', () => {
@@ -86,10 +85,10 @@ describe('exported plugin Config', () => {
 
 describe('host settings access', () => {
   it('reads the resolved entry config and reports the user layer', () => {
-    const stored = unflattenEarsSettings({ ...DEFAULT_EARS_SETTINGS, cloudAsrGroqApiKey: 'gsk_stored' })
+    const stored = unflattenEarsSettings({ ...DEFAULT_EARS_SETTINGS, localQwenPrompt: 'Qwen context' })
     const provider = createFakeSettingsForms({ stored })
     expect(readEarsSettingsRaw(provider).userLayerAvailable).toBe(false)
-    expect(flattenStoredSettings(readEarsSettingsRaw(provider).raw)).toMatchObject({ cloudAsrGroqApiKey: 'gsk_stored' })
+    expect(flattenStoredSettings(readEarsSettingsRaw(provider).raw)).toMatchObject({ localQwenPrompt: 'Qwen context' })
 
     const withUser = createFakeSettingsForms({ stored, user: {} })
     expect(readEarsSettingsRaw(withUser).userLayerAvailable).toBe(true)
@@ -109,11 +108,11 @@ describe('host settings access', () => {
 
   it('merges a nested patch into the user layer at the entry id', async () => {
     const provider = createFakeSettingsForms()
-    await updateEarsSettingsPatch(provider, { polishing: { enabled: false } }, readEarsSettingsRaw(provider).revision)
-    expect(provider.update).toHaveBeenCalledWith(SETTINGS_NAMESPACE, { polishing: { enabled: false } }, 0)
-    expect(provider.resolvedSection().polishing).toMatchObject({ enabled: false })
+    await updateEarsSettingsPatch(provider, { general: { soundsEnabled: false } }, readEarsSettingsRaw(provider).revision)
+    expect(provider.update).toHaveBeenCalledWith(SETTINGS_NAMESPACE, { general: { soundsEnabled: false } }, 0)
+    expect(provider.resolvedSection().general).toMatchObject({ soundsEnabled: false })
     // The user layer records the override, not the defaults it resolves over.
-    expect(provider.userSection()).toEqual({ polishing: { enabled: false } })
+    expect(provider.userSection()).toEqual({ general: { soundsEnabled: false } })
     expect(readEarsSettingsRaw(provider).userLayerAvailable).toBe(true)
   })
 
@@ -127,8 +126,8 @@ describe('host settings access', () => {
   it('refuses a write built from a snapshot whose revision moved', async () => {
     const provider = createFakeSettingsForms()
     const stale = readEarsSettingsRaw(provider).revision
-    await updateEarsSettingsPatch(provider, { polishing: { enabled: false } }, readEarsSettingsRaw(provider).revision)
-    await expect(updateEarsSettingsPatch(provider, { polishing: { enabled: true } }, stale)).rejects.toThrow('settings conflict')
+    await updateEarsSettingsPatch(provider, { general: { soundsEnabled: false } }, readEarsSettingsRaw(provider).revision)
+    await expect(updateEarsSettingsPatch(provider, { general: { soundsEnabled: true } }, stale)).rejects.toThrow('settings conflict')
   })
 
   it('reports the configured dsh range the About page shows', () => {

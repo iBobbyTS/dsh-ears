@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createSnapshotStore, shallowEqual } from '@deepseek-ai/dsh-client-store'
-import { CloudProviderController } from '../src/client/cloud-provider-controller.js'
+import { EarsSettingsController } from '../src/client/settings-controller.js'
 
 /**
  * These cases intentionally do NOT mock `@deepseek-ai/dsh-client-store`.
@@ -8,7 +8,7 @@ import { CloudProviderController } from '../src/client/cloud-provider-controller
  * dsh-ears bundles that package into `lib/client.js`, and the package declares
  * no Zustand/Immer dependency of its own (D-052), so the bundled engine is
  * whichever versions this repository installs. `settings.test.ts` and
- * `settings-subcontrollers.test.ts` replace the module with a stub, and the
+ * the Qwen settings tests replace the module with a stub, and the
  * compatibility smoke only checks that `lib/client.js` is served, so every
  * other suite would stay green even if the engine itself broke. These cases
  * execute the real engine so `zustand` and `immer` upgrades stay covered.
@@ -183,23 +183,12 @@ describe('bundled snapshot-store engine', () => {
     expect(shallowEqual(3, 4)).toBe(false)
   })
 
-  it('serves a production controller through the real engine', () => {
-    const controller = new CloudProviderController()
-    const store = controller.getStore()
-    let notifications = 0
-    const unsubscribe = store.subscribe(() => {
-      notifications += 1
-    })
-
-    expect(store.getSnapshot()).toEqual({ status: 'loading', view: { status: 'unsupported' } })
-
-    controller.invalidate()
-
-    expect(store.getSnapshot()).toEqual({ status: 'ready', view: { status: 'unsupported' } })
-    expect(Object.isFrozen(store.getSnapshot())).toBe(true)
-    expect(notifications).toBe(1)
-
-    unsubscribe()
+  it('serves the Qwen settings controller through the real engine', () => {
+    const controller = new EarsSettingsController({} as never)
+    const snapshot = controller.getSettingsStore().getSnapshot()
+    expect(snapshot.localQwenModel).toBe('1.7b-8bit')
+    expect(Object.isFrozen(snapshot)).toBe(true)
+    expect(controller.getCardStore().getSnapshot().localQwenPrompt.text).toBe('')
     controller.dispose()
   })
 })

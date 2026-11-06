@@ -1,168 +1,19 @@
 import { z } from 'zod'
-import { ASR_BACKEND_IDS, CLOUD_ASR_PROVIDER_IDS, DEEPGRAM_ASR_DEFAULT_SERVICE, DEEPGRAM_ASR_SERVICE_IDS, DEEPGRAM_DEFAULT_MODEL, MAX_CLOUD_API_KEY_LENGTH, MAX_QWEN3_PROMPT_LENGTH, MIMO_ASR_CLUSTERS, MIMO_ASR_DEFAULT_CLUSTER, MIMO_ASR_DEFAULT_SERVICE, MIMO_ASR_SERVICE_IDS, MIMO_DEFAULT_MODEL, SETTINGS_DISPLAY_NAME_IDS, SILICONFLOW_DEFAULT_MODEL, TENCENT_ASR_SERVICE_IDS, VOLCENGINE_ASR_DEFAULT_SERVICE, VOLCENGINE_ASR_SERVICE_IDS, VOLCENGINE_REALTIME_DEFAULT_MODEL, VOLCENGINE_REALTIME_MODEL_IDS, VOLCENGINE_RECORDING_DEFAULT_MODEL, VOLCENGINE_RECORDING_MODEL_IDS, WHISPER_ACCELERATION_IDS, WHISPER_MODEL_IDS, QWEN3_MODELS, DEFAULT_QWEN3_MODEL, QWEN3_DEFAULT_TTL_MINUTES } from './config.js'
-import type { AsrBackendId, EarsSettings, PolishRoute, WhisperAccelerationId } from './config.js'
+import { QWEN3_MODELS, MAX_QWEN3_PROMPT_LENGTH, SETTINGS_DISPLAY_NAME_IDS } from './config.js'
+import type { EarsSettings } from './config.js'
 import type { EarsErrorCode, EarsErrorParams } from './errors.js'
-import type { AsrBackendInfo } from './asr/types.js'
-
-const asrBackendSchema = z.enum(ASR_BACKEND_IDS)
-const whisperModelSchema = z.enum(WHISPER_MODEL_IDS)
-export const cloudAsrProviderSchema = z.enum(CLOUD_ASR_PROVIDER_IDS)
 export const textSchema = z.string()
-const cloudCredentialSchema = z.string().max(MAX_CLOUD_API_KEY_LENGTH)
-
 export const earsSettingsSchema = z.object({
-  asrBackend: z.string(),
-  webSpeechLanguage: z.string(),
-  localWhisperModel: z.string(),
-  localWhisperAcceleration: z.string(),
-  localWhisperLanguage: z.string(),
-  localQwenModel: z.string().default(DEFAULT_QWEN3_MODEL),
-  localQwenIdleTtlMinutes: z.number().default(QWEN3_DEFAULT_TTL_MINUTES),
-  localQwenPrompt: z.string().default(''),
-  cloudAsrProvider: z.string(),
-  cloudAsrGroqApiKey: z.string(),
-  cloudAsrGroqModel: z.string(),
-  cloudAsrGroqLanguage: z.string(),
-  cloudAsrDeepgramApiKey: z.string().default(''),
-  cloudAsrDeepgramModel: z.string().default(DEEPGRAM_DEFAULT_MODEL),
-  cloudAsrDeepgramLanguage: z.string().default(''),
-  cloudAsrDeepgramService: z.string().default(DEEPGRAM_ASR_DEFAULT_SERVICE),
-  cloudAsrCustomApiKey: z.string(),
-  cloudAsrCustomEndpoint: z.string(),
-  cloudAsrCustomModel: z.string(),
-  cloudAsrCustomLanguage: z.string(),
-  cloudAsrBailianApiKey: z.string(),
-  cloudAsrBailianHost: z.string(),
-  cloudAsrBailianModel: z.string(),
-  cloudAsrBailianLanguage: z.string(),
-  cloudAsrTencentAppId: z.string(),
-  cloudAsrTencentSecretId: z.string(),
-  cloudAsrTencentSecretKey: z.string(),
-  cloudAsrTencentEngineType: z.string(),
-  cloudAsrTencentService: z.string(),
-  cloudAsrMimoApiKey: z.string().default(''),
-  cloudAsrMimoService: z.string().default(MIMO_ASR_DEFAULT_SERVICE),
-  cloudAsrMimoCluster: z.string().default(MIMO_ASR_DEFAULT_CLUSTER),
-  cloudAsrMimoModel: z.string().default(MIMO_DEFAULT_MODEL),
-  cloudAsrMimoLanguage: z.string().default(''),
-  cloudAsrSiliconFlowApiKey: z.string().default(''),
-  cloudAsrSiliconFlowModel: z.string().default(SILICONFLOW_DEFAULT_MODEL),
-  cloudAsrSiliconFlowLanguage: z.string().default(''),
-  cloudAsrVolcengineApiKey: z.string().default(''),
-  cloudAsrVolcengineService: z.string().default(VOLCENGINE_ASR_DEFAULT_SERVICE),
-  cloudAsrVolcengineRealtimeModel: z.string().default(VOLCENGINE_REALTIME_DEFAULT_MODEL),
-  cloudAsrVolcengineRecordingModel: z.string().default(VOLCENGINE_RECORDING_DEFAULT_MODEL),
-  cloudAsrVolcengineLanguage: z.string().default(''),
-  maxRecordingSeconds: z.number(),
-  voiceShortcutEnabled: z.boolean(),
-  voiceShortcut: z.string(),
-  voiceSoundsEnabled: z.boolean(),
-  settingsDisplayName: z.string(),
-  polishingEnabled: z.boolean(),
-  polishProvider: z.string(),
-  polishModel: z.string(),
-  polishReasoningEffort: z.string(),
-  polishPrompt: z.string()
+  localQwenModel: z.string(), localQwenIdleTtlMinutes: z.number(), localQwenPrompt: z.string(),
+  maxRecordingSeconds: z.number(), voiceShortcutEnabled: z.boolean(), voiceShortcut: z.string(), voiceSoundsEnabled: z.boolean(), settingsDisplayName: z.string()
 })
-
 export const earsSettingsPatchSchema = z.object({
-  asrBackend: asrBackendSchema.optional(),
-  webSpeechLanguage: z.string().optional(),
-  localWhisperModel: whisperModelSchema.optional(),
-  localWhisperAcceleration: z.enum(WHISPER_ACCELERATION_IDS).optional(),
-  localWhisperLanguage: z.string().optional(),
-  localQwenModel: z.enum(QWEN3_MODELS).optional(),
-  localQwenIdleTtlMinutes: z.number().int().min(1).max(1440).optional(),
-  localQwenPrompt: z.string().max(MAX_QWEN3_PROMPT_LENGTH).optional(),
-  cloudAsrProvider: cloudAsrProviderSchema.optional(),
-  cloudAsrGroqApiKey: cloudCredentialSchema.optional(),
-  cloudAsrGroqModel: z.string().optional(),
-  cloudAsrGroqLanguage: z.string().optional(),
-  cloudAsrDeepgramApiKey: cloudCredentialSchema.optional(),
-  cloudAsrDeepgramModel: z.string().optional(),
-  cloudAsrDeepgramLanguage: z.string().optional(),
-  cloudAsrDeepgramService: z.enum(DEEPGRAM_ASR_SERVICE_IDS).optional(),
-  cloudAsrCustomApiKey: cloudCredentialSchema.optional(),
-  cloudAsrCustomEndpoint: z.string().optional(),
-  cloudAsrCustomModel: z.string().optional(),
-  cloudAsrCustomLanguage: z.string().optional(),
-  cloudAsrBailianApiKey: cloudCredentialSchema.optional(),
-  cloudAsrBailianHost: z.string().optional(),
-  cloudAsrBailianModel: z.string().optional(),
-  cloudAsrBailianLanguage: z.string().optional(),
-  cloudAsrTencentAppId: z.string().optional(),
-  cloudAsrTencentSecretId: z.string().optional(),
-  cloudAsrTencentSecretKey: cloudCredentialSchema.optional(),
-  cloudAsrTencentEngineType: z.string().optional(),
-  cloudAsrTencentService: z.enum(TENCENT_ASR_SERVICE_IDS).optional(),
-  cloudAsrMimoApiKey: cloudCredentialSchema.optional(),
-  cloudAsrMimoService: z.enum(MIMO_ASR_SERVICE_IDS).optional(),
-  cloudAsrMimoCluster: z.enum(MIMO_ASR_CLUSTERS).optional(),
-  cloudAsrMimoModel: z.string().optional(),
-  cloudAsrMimoLanguage: z.string().optional(),
-  cloudAsrSiliconFlowApiKey: cloudCredentialSchema.optional(),
-  cloudAsrSiliconFlowModel: z.string().optional(),
-  cloudAsrSiliconFlowLanguage: z.string().optional(),
-  cloudAsrVolcengineApiKey: cloudCredentialSchema.optional(),
-  cloudAsrVolcengineService: z.enum(VOLCENGINE_ASR_SERVICE_IDS).optional(),
-  cloudAsrVolcengineRealtimeModel: z.enum(VOLCENGINE_REALTIME_MODEL_IDS).optional(),
-  cloudAsrVolcengineRecordingModel: z.enum(VOLCENGINE_RECORDING_MODEL_IDS).optional(),
-  cloudAsrVolcengineLanguage: z.string().optional(),
-  maxRecordingSeconds: z.number().optional(),
-  voiceShortcutEnabled: z.boolean().optional(),
-  voiceShortcut: z.string().optional(),
-  voiceSoundsEnabled: z.boolean().optional(),
-  settingsDisplayName: z.enum(SETTINGS_DISPLAY_NAME_IDS).optional(),
-  polishingEnabled: z.boolean().optional(),
-  polishProvider: z.string().optional(),
-  polishModel: z.string().optional(),
-  polishReasoningEffort: z.string().optional(),
-  polishPrompt: z.string().optional()
-})
-
-const polishDefaultRouteSchema = z.object({
-  provider: z.string().min(1),
-  model: z.string().min(1),
-  reasoningEffort: z.string().optional()
-})
-
-export const earsSettingsViewSchema = z.object({
-  available: z.boolean(),
-  writable: z.boolean(),
-  settings: earsSettingsSchema,
-  cloudAsrGroqApiKeyConfigured: z.boolean(),
-  cloudAsrDeepgramApiKeyConfigured: z.boolean().default(false),
-  cloudAsrCustomApiKeyConfigured: z.boolean(),
-  cloudAsrBailianApiKeyConfigured: z.boolean(),
-  cloudAsrTencentSecretKeyConfigured: z.boolean(),
-  cloudAsrMimoApiKeyConfigured: z.boolean().default(false),
-  cloudAsrSiliconFlowApiKeyConfigured: z.boolean().default(false),
-  cloudAsrVolcengineApiKeyConfigured: z.boolean().default(false),
-  defaultPolishRoute: polishDefaultRouteSchema.optional(),
-  recoveredSettingsFields: z.array(z.string()).optional(),
-  localWhisperAccelerations: z.array(z.enum(WHISPER_ACCELERATION_IDS)).optional(),
-  overridden: z.array(z.string())
-})
-
-export const polishRouteSchema = z.object({
-  provider: z.string(),
-  providerName: z.string(),
-  model: z.string(),
-  modelName: z.string()
-})
-
-export const listRoutesResultSchema = z.array(polishRouteSchema)
-export const reasoningEffortInfoSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  description: z.string().optional()
-})
-export const reasoningEffortsViewSchema = z.object({
-  efforts: z.array(reasoningEffortInfoSchema),
-  defaultEffort: z.string().optional()
-})
+  localQwenModel: z.enum(QWEN3_MODELS).optional(), localQwenIdleTtlMinutes: z.number().int().min(1).max(1440).optional(), localQwenPrompt: z.string().max(MAX_QWEN3_PROMPT_LENGTH).optional(),
+  maxRecordingSeconds: z.number().optional(), voiceShortcutEnabled: z.boolean().optional(), voiceShortcut: z.string().optional(), voiceSoundsEnabled: z.boolean().optional(), settingsDisplayName: z.enum(SETTINGS_DISPLAY_NAME_IDS).optional()
+}).strict()
+export const earsSettingsViewSchema = z.object({ available: z.boolean(), writable: z.boolean(), settings: earsSettingsSchema, recoveredSettingsFields: z.array(z.string()).optional(), overridden: z.array(z.string()) })
 const errorParamsSchema = z.record(z.string(), z.union([z.string(), z.number()]))
-
+export const audioBase64Schema = z.string().min(1).max(33_554_432)
 export const qwenModelStateSchema = z.object({
   supported: z.boolean(),
   runtimeInstalled: z.boolean(),
@@ -177,40 +28,6 @@ export const qwenModelStateSchema = z.object({
   error: z.string().nullable()
 })
 
-export const whisperModelStateSchema = z.object({
-  runtimeAvailable: z.boolean(),
-  downloaded: z.boolean(),
-  downloading: z.boolean(),
-  progress: z.number().nullable(),
-  bytes: z.number().nullable(),
-  totalBytes: z.number().nullable(),
-  error: z.string().nullable(),
-  errorCode: z.string().optional(),
-  errorParams: errorParamsSchema.optional()
-})
-export const cloudProviderModelsViewSchema = z.object({
-  status: z.enum(['ok', 'no-key', 'error', 'unsupported']),
-  models: z.array(z.string()).optional(),
-  modelCapabilities: z.record(z.string().min(1), z.object({
-    batch: z.boolean().optional(),
-    streaming: z.boolean().optional(),
-    transport: z.enum(['listen-v1', 'listen-v2']).optional()
-  })).optional(),
-  error: z.string().optional(),
-  errorCode: z.string().optional(),
-  errorParams: errorParamsSchema.optional()
-})
-export const asrBackendInfoSchema = z.object({
-  id: asrBackendSchema,
-  name: z.string(),
-  available: z.boolean(),
-  detail: z.string(),
-  detailCode: z.string().optional(),
-  detailParams: errorParamsSchema.optional()
-})
-export const listAsrBackendsResultSchema = z.array(asrBackendInfoSchema)
-export const audioBase64Schema = z.string().min(1).max(33_554_432)
-export const audioMimeTypeSchema = z.string().min(1).max(128)
 export const remoteTextResultSchema = z.discriminatedUnion('status', [
   z.object({
     status: z.literal('ok'),
@@ -223,8 +40,6 @@ export const remoteTextResultSchema = z.discriminatedUnion('status', [
     params: errorParamsSchema.optional()
   })
 ])
-export const transcribeResultSchema = remoteTextResultSchema
-export const polishResultSchema = remoteTextResultSchema
 export const realtimeSessionSchema = z.object({ sessionId: z.string().min(1) })
 export const realtimeTranscriptSchema = z.object({ text: z.string(), final: z.boolean() })
 export const realtimeCancelledSchema = z.object({ cancelled: z.literal(true) })
@@ -262,29 +77,7 @@ export const updateCheckResultSchema = z.object({
 })
 
 export type EarsSettingsPatch = Partial<EarsSettings>
-export type EarsSettingsView = {
-  available: boolean
-  writable: boolean
-  settings: EarsSettings
-  cloudAsrGroqApiKeyConfigured: boolean
-  cloudAsrDeepgramApiKeyConfigured: boolean
-  cloudAsrCustomApiKeyConfigured: boolean
-  cloudAsrBailianApiKeyConfigured: boolean
-  cloudAsrTencentSecretKeyConfigured: boolean
-  cloudAsrMimoApiKeyConfigured: boolean
-  cloudAsrSiliconFlowApiKeyConfigured: boolean
-  cloudAsrVolcengineApiKeyConfigured: boolean
-  defaultPolishRoute?: { provider: string; model: string; reasoningEffort?: string }
-  recoveredSettingsFields?: string[]
-  localWhisperAccelerations?: WhisperAccelerationId[]
-  overridden: string[]
-}
-export type { PolishRoute }
-export type { AsrBackendInfo }
-export type { AsrBackendId, ReasoningEffortInfo, ReasoningEffortsView } from './config.js'
-export type { WhisperAccelerationId } from './config.js'
-export type { WhisperModelState } from './asr/whisper-models.js'
+export type EarsSettingsView = z.infer<typeof earsSettingsViewSchema>
 export type { Qwen3ModelState } from './asr/qwen3-runtime.js'
-export type CloudProviderModelsView = z.infer<typeof cloudProviderModelsViewSchema>
 export type AboutInfo = z.infer<typeof aboutInfoSchema>
 export type UpdateCheckResult = z.infer<typeof updateCheckResultSchema>

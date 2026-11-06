@@ -2,91 +2,61 @@ import { useEffect, useRef } from 'react'
 import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots'
 import type { InputActions, InputState } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import { Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
-import { effectiveRecognitionLanguage, effectiveRecordingSeconds } from '../config.js'
+import { effectiveRecordingSeconds } from '../config.js'
 import { isEarsErrorCode } from '../errors.js'
 import type { EarsSettings } from '../config.js'
-import type { AsrBackendInfo } from '../remote-contract.js'
 import { AudioLevelMonitor } from '../asr/audio-level.js'
-import { MediaRecorderSession, isMediaRecorderAvailable, warmMicrophone } from '../asr/media-recorder.js'
 import { RealtimeAudioCaptureSession, isRealtimeAudioCaptureAvailable } from './realtime-audio-capture.js'
-import { WebSpeechSession, isWebSpeechAvailable } from '../asr/web-speech.js'
 import type { EarsRemote } from '../remote.js'
 import styles from './MicrophoneButton.module.css'
-import { base64ByteLength, classifyVoiceFailure, failureMessage, isTrivialRecording, remoteFailureDetail, remoteFailureParams } from './voice-error.js'
-import { commitTranscript, updateDraft } from './voice-flow.js'
+import { classifyVoiceFailure, failureMessage, remoteFailureDetail, remoteFailureParams } from './voice-error.js'
+import { isSupersededMediaCapture, reuseInFlightPromise } from './voice-capture.js'
 import { VoiceDraftWriter } from './voice-draft-writer.js'
 import { observeComposerSubmission } from './composer-submit.js'
 import { matchesShortcut } from '../shortcut.js'
 import { fallbackTranslate, localizedErrorText, type Translate } from './settings-locale.js'
-import { resolveCaptureBackend, isSupersededMediaCapture, reuseInFlightPromise, shouldAbandonPendingCapture, webSpeechCommittedTranscript } from './voice-capture.js'
-import { micUnavailableReason, type MicUnavailableReason } from './mic-availability.js'
-import type { BackendHook, WhisperModelHook } from './settings-controller.js'
 import { playClick, resumeSounds, retainSounds } from './sounds.js'
 import { createVoiceStateSetter, useVoiceInputSession, type VoiceInputSession } from './voice-session.js'
-import { isTranscriptionStillCurrent, prepareRecordedAudioForBackend, type MediaCaptureBackend } from './local-whisper-audio.js'
-import { isCloudAsrRealtime } from '../asr/providers.js'
 
 type VoiceInputButtonProps = {
   readonly useInput: SnapshotSelectorHook<InputState>
   readonly inputActions: InputActions
   readonly remote: EarsRemote
   readonly useEarsSettings: SnapshotSelectorHook<EarsSettings>
-  readonly useEarsBackends: BackendHook
-  readonly useEarsWhisper: WhisperModelHook
   readonly voiceSession: VoiceInputSession
-  readonly useUiLocale?: () => string
   readonly t?: Translate
   readonly earsT?: Translate
 }
 
-export function MicrophoneButton({ useInput, inputActions, remote, useEarsSettings, useEarsBackends, useEarsWhisper, voiceSession, useUiLocale, t: slotT, earsT }: VoiceInputButtonProps) {
+export function MicrophoneButton({ useInput, inputActions, remote, useEarsSettings, voiceSession, t: slotT, earsT }: VoiceInputButtonProps) {
   const t = slotT ?? earsT ?? fallbackTranslate
   const voiceSnapshot = useVoiceInputSession(voiceSession)
   const state = voiceSnapshot.state
   const setState = createVoiceStateSetter(voiceSession)
-  const speechSessionRef = useRef<WebSpeechSession | null>(null)
-  const mediaSessionRef = useRef<MediaRecorderSession | null>(null)
   const realtimeCaptureRef = useRef<RealtimeAudioCaptureSession | null>(null)
   const realtimeRemoteSessionIdRef = useRef<string | null>(null)
   const realtimeReadyRef = useRef<Promise<string> | null>(null)
   const realtimeStartAbortRef = useRef<AbortController | null>(null)
-  const realtimeBaseDraftRef = useRef('')
-  const realtimeDraftRef = useRef('')
-  const realtimeLocalQwenRef = useRef(false)
   const realtimeWriterRef = useRef<VoiceDraftWriter | null>(null)
   const levelMonitorRef = useRef<AudioLevelMonitor | null>(null)
-  const mediaBaseDraftRef = useRef('')
-  const mediaStartedAtRef = useRef(0)
   const mediaStartCancelledRef = useRef(false)
   const mediaStartGenerationRef = useRef(0)
-  const mediaBackendRef = useRef<MediaCaptureBackend | null>(null)
   const transcribeAbortRef = useRef<AbortController | null>(null)
   const realtimeStopPromiseRef = useRef<{ key: RealtimeAudioCaptureSession; promise: Promise<void> } | null>(null)
-  const polishAbortRef = useRef<AbortController | null>(null)
   const recordingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const stopRecordingRef = useRef<(() => void | Promise<void>) | null>(null)
-  const draft = useInput((value) => value.draft)
   const inputPhase = useInput((value) => value.phase)
   const actionsRef = useRef(inputActions)
-  const latestDraftRef = useRef(draft)
-  const uiLocale = useUiLocale?.() ?? 'zh'
   const settings = useEarsSettings((value) => value)
-  const backendInfo = useEarsBackends((value) => value)
-  const whisperView = useEarsWhisper((value) => value)
   const settingsRef = useRef(settings)
   settingsRef.current = settings
   const mountedRef = useRef(true)
   const buttonRef = useRef<HTMLButtonElement | null>(null)
   const toggleRef = useRef<(() => void) | null>(null)
-  const gateRef = useRef<MicUnavailableReason | null>(null)
 
   useEffect(() => {
     actionsRef.current = inputActions
   }, [inputActions])
-
-  useEffect(() => {
-    latestDraftRef.current = draft
-  }, [draft])
 
   useEffect(() => {
     // The hotkey runs on window CAPTURE so it outranks text input: editor
@@ -112,7 +82,7 @@ export function MicrophoneButton({ useInput, inputActions, remote, useEarsSettin
       const element = buttonRef.current
       if (event.key === 'Escape' && !event.ctrlKey && !event.altKey && !event.shiftKey && !event.metaKey) {
         const voiceState = voiceSession.getSnapshot().state
-        const hasVoiceTask = voiceState === 'starting' || voiceState === 'recording' || voiceState === 'transcribing' || voiceState === 'polishing'
+        const hasVoiceTask = voiceState === 'starting' || voiceState === 'recording' || voiceState === 'transcribing'
         if (hasVoiceTask && document.visibilityState === 'visible' && element !== null && element.offsetParent !== null) {
           event.preventDefault()
           // Agent interruption observes window BUBBLE. Consume this occurrence
@@ -131,10 +101,6 @@ export function MicrophoneButton({ useInput, inputActions, remote, useEarsSettin
       if (element === null || element.offsetParent === null) return
       event.preventDefault()
       event.stopPropagation()
-      if (gateRef.current !== null) {
-        if (document.activeElement !== element) element.focus()
-        return
-      }
       toggleRef.current?.()
     }
     window.addEventListener('keydown', onKeyDown, true)
@@ -156,13 +122,7 @@ export function MicrophoneButton({ useInput, inputActions, remote, useEarsSettin
     })
     const cancel = voiceSession.onCancelRequested((preserveDraft) => {
       mediaStartGenerationRef.current += 1
-      speechSessionRef.current?.abort()
-      speechSessionRef.current = null
-      mediaSessionRef.current?.abort()
-      mediaSessionRef.current = null
-      mediaBackendRef.current = null
       transcribeAbortRef.current?.abort()
-      polishAbortRef.current?.abort()
       mediaStartCancelledRef.current = true
       realtimeStartAbortRef.current?.abort()
       realtimeStartAbortRef.current = null
@@ -207,10 +167,6 @@ export function MicrophoneButton({ useInput, inputActions, remote, useEarsSettin
       voiceSession.setState('idle')
       levelMonitorRef.current?.stop()
       levelMonitorRef.current = null
-      speechSessionRef.current?.abort()
-      speechSessionRef.current = null
-      mediaSessionRef.current?.abort()
-      mediaSessionRef.current = null
       realtimeStartAbortRef.current?.abort()
       realtimeStartAbortRef.current = null
       realtimeReadyRef.current = null
@@ -221,169 +177,18 @@ export function MicrophoneButton({ useInput, inputActions, remote, useEarsSettin
       if (realtimeSessionId !== null) void remote.cancelRealtime(realtimeSessionId)
       realtimeWriterRef.current?.cancel()
       realtimeWriterRef.current = null
-      mediaBackendRef.current = null
       transcribeAbortRef.current?.abort()
-      polishAbortRef.current?.abort()
       clearRecordingTimer(recordingTimerRef)
       releaseSounds()
     }
   }, [voiceSession])
 
   const active = state === 'starting' || state === 'recording'
-  const busy = state === 'transcribing' || state === 'polishing'
-  const backend = resolveCaptureBackend(settings.asrBackend)
-  const configUnavailable = !active && !busy && backend !== null && (state === 'idle' || state === 'error' || state === 'polish-error' || state === 'upstream-error')
-    ? micUnavailableReason(backend, backendInfo, whisperView)
-    : null
-  gateRef.current = backend === null ? { kind: 'backend', backendId: 'web-speech' } : configUnavailable
-
-  if (!active && !busy && backend === null) {
-    return (
-      <Tooltip label={t('voiceUnavailable')} side="top" delayMs={200} portal>
-        <button
-          ref={buttonRef}
-          type="button"
-          aria-label={t('voiceUnavailable')}
-          aria-disabled="true"
-          className={styles.button}
-        >
-          <MicrophoneIcon />
-        </button>
-      </Tooltip>
-    )
-  }
-
-  if (!active && !busy && configUnavailable !== null) {
-    return (
-      <Tooltip label={micUnavailableTooltip(configUnavailable, backendInfo.backends, t)} side="top" delayMs={200} portal>
-        <button
-          ref={buttonRef}
-          type="button"
-          aria-label={t('voiceUnavailable')}
-          aria-disabled="true"
-          className={styles.button}
-        >
-          <MicrophoneIcon />
-        </button>
-      </Tooltip>
-    )
-  }
-
-  let backendAvailable: boolean
-  if (backend === 'web-speech') {
-    backendAvailable = isWebSpeechAvailable()
-  } else if (backend === 'local-qwen3' || (backend === 'cloud-openai' && isCloudAsrRealtime(settings))) {
-    backendAvailable = isRealtimeAudioCaptureAvailable()
-  } else {
-    backendAvailable = isMediaRecorderAvailable()
-  }
-  if (!active && !busy && !backendAvailable) {
-    const unavailableLabel = backend === 'web-speech' ? t('voiceUnavailableWebSpeech') : t('voiceUnavailableRecorder')
-    return (
-      <Tooltip label={unavailableLabel} side="top" delayMs={200} portal>
-        <button
-          ref={buttonRef}
-          type="button"
-          aria-label={t('voiceUnavailable')}
-          aria-disabled="true"
-          className={styles.button}
-        >
-          <MicrophoneIcon />
-        </button>
-      </Tooltip>
-    )
-  }
-
-  const startWebSpeech = () => {
-    let baseDraft = draft
-    // Supersede any pending media capture before starting Web Speech.
-    mediaStartGenerationRef.current += 1
-    let sessionDraft = baseDraft
-    let failed = false
-    mediaStartCancelledRef.current = false
-    setState('starting')
-
-    let session!: WebSpeechSession
-    let levelMonitorStarting = false
-    const startLevelMonitor = () => {
-      if (levelMonitorStarting || levelMonitorRef.current !== null) return
-      levelMonitorStarting = true
-      void AudioLevelMonitor.capture((level) => voiceSession.pushAudioLevel(level)).then((monitor) => {
-        levelMonitorStarting = false
-        if (!mountedRef.current || speechSessionRef.current !== session) {
-          monitor.stop()
-          return
-        }
-        levelMonitorRef.current?.stop()
-        levelMonitorRef.current = monitor
-      }).catch(() => {
-        levelMonitorStarting = false
-        // Web Speech remains usable when the optional waveform analyser is unavailable.
-      })
-    }
-
-    const updateLiveDraft = (text: string) => {
-      const currentDraft = latestDraftRef.current
-      if (currentDraft !== sessionDraft) {
-        if (currentDraft.trim() !== '') return
-        // Treat clearing the composer as the new insertion point for this
-        // recognition session rather than restoring the old draft.
-        baseDraft = ''
-      }
-      sessionDraft = updateDraft(baseDraft, text, latestDraftRef, actionsRef)
-    }
-
-    try {
-      session = new WebSpeechSession({
-        language: effectiveRecognitionLanguage(settingsRef.current.webSpeechLanguage, uiLocale),
-        onStart: () => {
-          startLevelMonitor()
-        },
-        onInterim: updateLiveDraft,
-        onFinal: updateLiveDraft,
-        onError: (error) => {
-          failed = true
-          levelMonitorRef.current?.stop()
-          levelMonitorRef.current = null
-          applyVoiceFailure(voiceSession, 'asr', error)
-        },
-        onEnd: (text) => {
-          clearRecordingTimer(recordingTimerRef)
-          levelMonitorRef.current?.stop()
-          levelMonitorRef.current = null
-          speechSessionRef.current = null
-          const transcript = webSpeechCommittedTranscript({ sessionText: text, sessionDraft, baseDraft })
-          if (failed || transcript === '') {
-            if (!failed) setState('idle')
-            return
-          }
-          const epoch = voiceSession.captureEpoch()
-          commitTranscript({
-            transcript,
-            baseDraft,
-            expectedDraft: sessionDraft,
-            requireUnchanged: true,
-            settings: settingsRef.current,
-            remote,
-            setState,
-            latestDraftRef,
-            actionsRef,
-            polishAbortRef,
-            isCurrent: () => voiceSession.isCurrentEpoch(epoch)
-          })
-        }
-      })
-
-      speechSessionRef.current = session
-      session.start()
-      setState('recording')
-      armRecordingTimer(recordingTimerRef, settingsRef.current.maxRecordingSeconds, () => session.stop())
-    } catch {
-      levelMonitorRef.current?.stop()
-      levelMonitorRef.current = null
-      speechSessionRef.current = null
-      if (mountedRef.current) applyVoiceFailure(voiceSession, 'asr', new Error('Speech recognition is unavailable in this browser'))
-    }
+  const busy = state === 'transcribing'
+  if (!active && !busy && !isRealtimeAudioCaptureAvailable()) {
+    return <Tooltip label={t('voiceUnavailableRecorder')} side="top" delayMs={200} portal>
+      <button ref={buttonRef} type="button" aria-label={t('voiceUnavailable')} aria-disabled="true" className={styles.button}><MicrophoneIcon /></button>
+    </Tooltip>
   }
 
   const stopRealtimeRecording = () => {
@@ -391,7 +196,6 @@ export function MicrophoneButton({ useInput, inputActions, remote, useEarsSettin
     const ready = realtimeReadyRef.current
     let sessionId = realtimeRemoteSessionIdRef.current
     if (capture === null || (sessionId === null && ready === null)) return Promise.resolve()
-    const localQwen = realtimeLocalQwenRef.current
     const writer = realtimeWriterRef.current
     return reuseInFlightPromise(realtimeStopPromiseRef, capture, async () => {
       playToggleClick(settingsRef.current, 0.4)
@@ -408,73 +212,39 @@ export function MicrophoneButton({ useInput, inputActions, remote, useEarsSettin
         const result = await remote.finishRealtime(sessionId, controller.signal)
         if (!mountedRef.current || controller.signal.aborted || !voiceSession.isCurrentEpoch(epoch)) return
         if (!result.ok) {
-          applyVoiceFailure(voiceSession, 'asr', result.error)
+          applyVoiceFailure(voiceSession, result.error)
           return
         }
         if (result.value.status === 'error') {
-          applyVoiceFailure(voiceSession, 'asr', result.value)
+          applyVoiceFailure(voiceSession, result.value)
           return
         }
         const transcript = result.value.text.trim()
-        if (localQwen) {
-          if (realtimeWriterRef.current === writer) realtimeWriterRef.current = null
-          if (writer === null) { setState('idle'); return }
-          if (!writer.finalize(transcript)) {
-            // The user edited/sent/switched drafts. Never clobber that edit.
-            applyVoiceFailure(voiceSession, 'asr', new Error(t('qwenDraftChanged')))
-            return
-          }
-          setState('idle')
+        if (realtimeWriterRef.current === writer) realtimeWriterRef.current = null
+        if (writer === null) { setState('idle'); return }
+        if (!writer.finalize(transcript)) {
+          applyVoiceFailure(voiceSession, new Error(t('qwenDraftChanged')))
           return
         }
-        if (transcript === '') {
-          setState('idle')
-          return
-        }
-        const baseDraft = realtimeBaseDraftRef.current
-        // Cloud providers also must not overwrite edits made after the last
-        // interim hypothesis. Leave that draft untouched if ownership was lost.
-        if (latestDraftRef.current !== realtimeDraftRef.current && latestDraftRef.current.trim() !== '') {
-          setState('idle')
-          return
-        }
-        updateDraft(baseDraft, transcript, latestDraftRef, actionsRef)
-        commitTranscript({
-          transcript,
-          baseDraft,
-          expectedDraft: latestDraftRef.current,
-          requireUnchanged: true,
-          transcriptAlreadyApplied: true,
-          settings: settingsRef.current,
-          remote,
-          setState,
-          latestDraftRef,
-          actionsRef,
-          polishAbortRef,
-          isCurrent: () => voiceSession.isCurrentEpoch(epoch)
-        })
+        setState('idle')
       } catch (error) {
-        if (mountedRef.current && !controller.signal.aborted && voiceSession.isCurrentEpoch(epoch)) applyVoiceFailure(voiceSession, 'asr', error)
+        if (mountedRef.current && !controller.signal.aborted && voiceSession.isCurrentEpoch(epoch)) applyVoiceFailure(voiceSession, error)
       } finally {
         if (realtimeCaptureRef.current === capture) {
           realtimeCaptureRef.current = null
-          realtimeLocalQwenRef.current = false
         }
         if (realtimeReadyRef.current === ready) realtimeReadyRef.current = null
         if (realtimeRemoteSessionIdRef.current === sessionId) realtimeRemoteSessionIdRef.current = null
         if (transcribeAbortRef.current === controller) transcribeAbortRef.current = null
         if (sessionId !== null) void remote.cancelRealtime(sessionId)
-        if (localQwen) writer?.cancel()
+        writer?.cancel()
         if (realtimeWriterRef.current === writer) realtimeWriterRef.current = null
       }
     })
   }
 
   const startRealtimeRecording = async () => {
-    const baseDraft = draft
-    const localQwen = settingsRef.current.asrBackend === 'local-qwen3'
-    realtimeLocalQwenRef.current = localQwen
-    const writer = localQwen ? new VoiceDraftWriter(actionsRef.current) : null
+    const writer = new VoiceDraftWriter(actionsRef.current)
     realtimeWriterRef.current = writer
     const startController = new AbortController()
     realtimeStartAbortRef.current = startController
@@ -494,45 +264,29 @@ export function MicrophoneButton({ useInput, inputActions, remote, useEarsSettin
         // The startup catch owns cancellation of this closure's remote ID.
         throw new DOMException('Recording startup cancelled', 'AbortError')
       }
-      if (localQwen) realtimeRemoteSessionIdRef.current = id
+      realtimeRemoteSessionIdRef.current = id
       return id
     }
     try {
-      // Local cold starts must not delay microphone capture. Cloud providers
-      // retain their existing connect-before-recording behavior.
-      if (!localQwen) await openRemote()
+      // Capture immediately while the local model starts.
       capture = await RealtimeAudioCaptureSession.create()
       if (abandoned()) {
         capture.abort()
         if (sessionId !== undefined) await remote.cancelRealtime(sessionId)
         return
       }
-      if (localQwen) {
-        ready = openRemote()
-        realtimeReadyRef.current = ready
-      }
+      ready = openRemote()
+      realtimeReadyRef.current = ready
       const epoch = voiceSession.captureEpoch()
       realtimeCaptureRef.current = capture
       if (sessionId !== undefined) realtimeRemoteSessionIdRef.current = sessionId
-      realtimeBaseDraftRef.current = baseDraft
-      realtimeDraftRef.current = baseDraft
       capture.start(async (audioBase64) => {
         const result = await remote.sendRealtimeAudio(sessionId!, audioBase64)
         if (!mountedRef.current || !voiceSession.isCurrentEpoch(epoch)) return
         if (!result.ok) throw result.error
         const transcript = result.value.text.trim()
-        if (localQwen) {
-          // A full current hypothesis is required: it may be shorter than
-          // the last one due to the model's native Prefix Rollback.
-          writer?.update(transcript)
-          return
-        }
-        if (transcript === '') return
-        if (latestDraftRef.current !== realtimeDraftRef.current) {
-          if (latestDraftRef.current.trim() !== '') return
-          realtimeBaseDraftRef.current = ''
-        }
-        realtimeDraftRef.current = updateDraft(realtimeBaseDraftRef.current, transcript, latestDraftRef, actionsRef)
+        // Send the full hypothesis so native Prefix Rollback can shorten it.
+        writer.update(transcript)
       }, ready?.then(() => undefined))
       setState('recording')
       armRecordingTimer(recordingTimerRef, effectiveRecordingSeconds(settingsRef.current), () => void stopRecording())
@@ -556,16 +310,15 @@ export function MicrophoneButton({ useInput, inputActions, remote, useEarsSettin
       levelMonitorRef.current?.stop()
       levelMonitorRef.current = null
       if (mediaStartCancelledRef.current) setState('idle')
-      else applyVoiceFailure(voiceSession, 'asr', error)
-      if (localQwen) writer?.cancel()
+      else applyVoiceFailure(voiceSession, error)
+      writer.cancel()
       if (realtimeWriterRef.current === writer) realtimeWriterRef.current = null
-      realtimeLocalQwenRef.current = false
     }
   }
 
   const stopRecording = async () => {
     clearRecordingTimer(recordingTimerRef)
-    if (state === 'starting' && speechSessionRef.current === null && mediaSessionRef.current === null && realtimeCaptureRef.current === null && realtimeRemoteSessionIdRef.current === null) {
+    if (state === 'starting' && realtimeCaptureRef.current === null && realtimeRemoteSessionIdRef.current === null) {
       playToggleClick(settingsRef.current, 0.4)
       mediaStartCancelledRef.current = true
       realtimeStartAbortRef.current?.abort()
@@ -575,130 +328,11 @@ export function MicrophoneButton({ useInput, inputActions, remote, useEarsSettin
       setState('idle')
       return
     }
-    if (speechSessionRef.current !== null) {
-      playToggleClick(settingsRef.current, 0.4)
-      speechSessionRef.current.stop()
-      return
-    }
-    if (realtimeCaptureRef.current !== null || realtimeRemoteSessionIdRef.current !== null) {
-      await stopRealtimeRecording()
-      return
-    }
-    const session = mediaSessionRef.current
-    if (session === null) return
-    playToggleClick(settingsRef.current, 0.4)
-    mediaSessionRef.current = null
-    levelMonitorRef.current?.stop()
-    levelMonitorRef.current = null
-    const baseDraft = mediaBaseDraftRef.current
-    const startedAt = mediaStartedAtRef.current
-    const mediaBackend = mediaBackendRef.current
-    mediaBackendRef.current = null
-    const controller = new AbortController()
-    transcribeAbortRef.current = controller
-    try {
-      const audio = await session.stop()
-      if (!mountedRef.current || controller.signal.aborted) return
-      if (mediaBackend === null) {
-        applyVoiceFailure(voiceSession, 'asr', new Error('Media recording backend snapshot is missing'))
-        return
-      }
-      if (isTrivialRecording(base64ByteLength(audio.base64), Date.now() - startedAt)) {
-        setState('idle')
-        return
-      }
-      setState('transcribing')
-      const epoch = voiceSession.captureEpoch()
-      const transcribeAudio = await prepareRecordedAudioForBackend(mediaBackend, audio, { signal: controller.signal, cloudProvider: settingsRef.current.cloudAsrProvider })
-      if (!isTranscriptionStillCurrent({
-        mounted: mountedRef.current,
-        signal: controller.signal,
-        captureIsCurrent: voiceSession.isCurrentEpoch(epoch)
-      })) return
-      const result = await remote.transcribe(transcribeAudio.base64, transcribeAudio.mimeType, controller.signal)
-      if (!isTranscriptionStillCurrent({
-        mounted: mountedRef.current,
-        signal: controller.signal,
-        captureIsCurrent: voiceSession.isCurrentEpoch(epoch)
-      })) return
-      if (!result.ok) {
-        applyVoiceFailure(voiceSession, 'asr', result.error)
-        return
-      }
-      if (result.value.status === 'error') {
-        applyVoiceFailure(voiceSession, 'asr', result.value)
-        return
-      }
-      if (result.value.text.trim() === '') {
-        setState('idle')
-        return
-      }
-      commitTranscript({
-        transcript: result.value.text,
-        baseDraft,
-        requireUnchanged: true,
-        settings: settingsRef.current,
-        remote,
-        setState,
-        latestDraftRef,
-        actionsRef,
-        polishAbortRef,
-        isCurrent: () => voiceSession.isCurrentEpoch(epoch)
-      })
-    } catch (error) {
-      if (mountedRef.current && !controller.signal.aborted) applyVoiceFailure(voiceSession, 'asr', error)
-    } finally {
-      if (transcribeAbortRef.current === controller) transcribeAbortRef.current = null
-    }
+    await stopRealtimeRecording()
   }
-
   stopRecordingRef.current = stopRecording
-
-  const startMediaRecording = async (backend: MediaCaptureBackend) => {
-    const baseDraft = draft
-    const generation = ++mediaStartGenerationRef.current
-    mediaStartCancelledRef.current = false
-    setState('starting')
-    let session: MediaRecorderSession | undefined
-    try {
-      session = await MediaRecorderSession.create()
-      if (isSupersededMediaCapture(mediaStartGenerationRef.current, generation) || shouldAbandonPendingCapture(mountedRef.current, mediaStartCancelledRef.current)) {
-        session.abort()
-        return
-      }
-      mediaSessionRef.current = session
-      mediaBackendRef.current = backend
-      mediaBaseDraftRef.current = baseDraft
-      mediaStartedAtRef.current = Date.now()
-      session.start()
-      setState('recording')
-      armRecordingTimer(recordingTimerRef, effectiveRecordingSeconds(settingsRef.current), () => void stopRecording())
-      try {
-        levelMonitorRef.current = session.createLevelMonitor((level) => voiceSession.pushAudioLevel(level))
-      } catch {
-        // Recording remains usable when the optional waveform analyser is unavailable.
-      }
-    } catch {
-      session?.abort()
-      if (mediaSessionRef.current === session) {
-        mediaSessionRef.current = null
-        mediaBackendRef.current = null
-      }
-      // A superseded start owns neither the shared refs nor the UI state; the
-      // newer initiation reports its own outcome.
-      if (!mountedRef.current || isSupersededMediaCapture(mediaStartGenerationRef.current, generation)) return
-      levelMonitorRef.current?.stop()
-      levelMonitorRef.current = null
-      if (mediaStartCancelledRef.current) setState('idle')
-      else applyVoiceFailure(voiceSession, 'asr', new Error('Media recording is unavailable in this browser'))
-    }
-  }
-
   const prewarmMicrophone = () => {
     if (settingsRef.current.voiceSoundsEnabled !== false) resumeSounds()
-    if (active || busy) return
-    if (resolveCaptureBackend(settingsRef.current.asrBackend) === 'web-speech') return
-    warmMicrophone()
   }
 
   const toggle = () => {
@@ -710,25 +344,16 @@ export function MicrophoneButton({ useInput, inputActions, remote, useEarsSettin
     if (busy) return
     playToggleClick(settingsRef.current, 0.5)
 
-    const nextBackend = resolveCaptureBackend(settingsRef.current.asrBackend)
-    if (nextBackend === 'web-speech') {
-      void startWebSpeech()
-    } else if (nextBackend === 'local-qwen3' || (nextBackend === 'cloud-openai' && isCloudAsrRealtime(settingsRef.current))) {
-      void startRealtimeRecording()
-    } else if (nextBackend === 'local-whisper' || nextBackend === 'cloud-openai') {
-      void startMediaRecording(nextBackend)
-    }
+    void startRealtimeRecording()
   }
   toggleRef.current = toggle
 
-  const failureDetail = localizedErrorText(t, voiceSnapshot.detailCode, voiceSnapshot.detail || (state === 'polish-error' ? t('voicePolishFailed') : t('voiceError')), voiceSnapshot.detailParams)
+  const failureDetail = localizedErrorText(t, voiceSnapshot.detailCode, voiceSnapshot.detail || t('voiceError'), voiceSnapshot.detailParams)
   const tooltipLabel = busy
     ? t('voiceBusy')
     : active
       ? t('voiceStop')
-      : state === 'polish-error'
-        ? t('voiceUpstreamPolish', { detail: failureDetail || t('voicePolishFailed') })
-        : state === 'upstream-error'
+      : state === 'upstream-error'
           ? t('voiceUpstreamAsr', { detail: failureDetail })
           : state === 'error'
             ? failureDetail
@@ -772,7 +397,7 @@ function playToggleClick(settings: EarsSettings, intensity: number): void {
   playClick(intensity)
 }
 
-function applyVoiceFailure(session: VoiceInputSession, source: 'asr' | 'polish', error: unknown): void {
+function applyVoiceFailure(session: VoiceInputSession, error: unknown): void {
   const code = error !== null && typeof error === 'object' && 'code' in error && typeof error.code === 'string' ? error.code : undefined
   const message = error !== null && typeof error === 'object' && 'message' in error && typeof error.message === 'string' ? error.message : failureMessage(error)
   const detail = remoteFailureDetail({ code, message })
@@ -787,21 +412,7 @@ function applyVoiceFailure(session: VoiceInputSession, source: 'asr' | 'polish',
     session.setState('error', '', detailCode, detailParams)
     return
   }
-  session.setState(source === 'polish' ? 'polish-error' : 'upstream-error', detail, detailCode, detailParams)
-}
-
-function micUnavailableTooltip(reason: MicUnavailableReason, backends: readonly AsrBackendInfo[], t: Translate): string {
-  if (reason.kind === 'model-not-downloaded') return t('whisperNotDownloaded')
-  if (reason.kind === 'model-downloading') {
-    if (reason.percent === null) return t('whisperDownloading')
-    const percent = Math.max(0, Math.min(100, Math.round(reason.percent * 100)))
-    return t('whisperDownloadingProgress', { percent })
-  }
-  const info = backends.find((candidate) => candidate.id === reason.backendId)
-  if (reason.backendId === 'local-whisper') return t('backendUnavailable', { detail: t('localUnavailable') })
-  if (reason.backendId === 'cloud-openai') return t('backendUnavailable', { detail: t('cloudUnavailable') })
-  const detail = localizedErrorText(t, info?.detailCode, info?.detail ?? t('voiceUnavailableWebSpeech'), info?.detailParams)
-  return t('backendUnavailable', { detail })
+  session.setState('upstream-error', detail, detailCode, detailParams)
 }
 
 function MicrophoneIcon() {

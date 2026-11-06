@@ -14,7 +14,7 @@ pnpm build
 pnpm verify:package
 ```
 
-Local Qwen3-ASR requires Apple Silicon macOS and Python 3.10+ for its isolated MLX environment. This is separate from Local Whisper, whose bundled native runtime does not require Python or FFmpeg.
+Local Qwen3-ASR requires Apple Silicon macOS and Python 3.10+ for its isolated MLX environment. No other ASR runtime is shipped.
 
 ## Local loading and refresh
 

@@ -137,8 +137,6 @@ const expectedDshPeers = [
   '@deepseek-ai/dsh-client-ui-settings',
   '@deepseek-ai/dsh-client-ui-settings-plugins',
   '@deepseek-ai/dsh-client-ui-slots',
-  '@deepseek-ai/dsh-credentials',
-  '@deepseek-ai/dsh-llm',
   '@deepseek-ai/dsh-settings',
   '@deepseek-ai/dsh-typert-protocol'
 ]
@@ -146,6 +144,10 @@ for (const name of expectedDshPeers) requireManifestValue(`peerDependencies[${na
 requireManifestValue('dependencies[@deepseek-ai/dsh-client-store]', manifest.dependencies?.['@deepseek-ai/dsh-client-store'], '0.2.1-rc.2')
 if (Object.hasOwn(manifest.peerDependencies ?? {}, '@deepseek-ai/dsh-client-store')) fail('dsh-client-store must be an implementation dependency, not a peer')
 if (clientInject?.includes('@deepseek-ai/dsh-client-store')) fail('dsh.client.inject must not include bundled dsh-client-store')
+
+for (const name of ['@fugood/whisper.node', '@deepseek-ai/dsh-credentials', '@deepseek-ai/dsh-llm']) {
+  for (const group of ['dependencies', 'devDependencies', 'peerDependencies']) if (manifest[group]?.[name] !== undefined) fail(`${group} must not declare removed feature ${name}`)
+}
 
 const hostBundle = existsSync(join(root, 'lib', 'index.js')) ? readFileSync(join(root, 'lib', 'index.js'), 'utf8') : ''
 if (hostBundle.includes('TypertLookupFailure')) fail('lib/index.js must not reference TypertLookupFailure')
@@ -182,7 +184,9 @@ if (descriptors === undefined) {
     codecs.push({ subject: `${descriptor.id} result`, codec: descriptor.result })
     if (!clientBundle.includes(descriptor.id)) fail(`lib/client.js must inline the ${descriptor.id} descriptor`)
   }
-  if (codecs.length !== 48) fail(`the built descriptor table must carry 48 codecs, found ${codecs.length}`)
+  if (codecs.length !== 25) fail(`the Qwen-only descriptor table must carry 25 codecs, found ${codecs.length}`)
+  const expected = ['getAbout', 'checkForUpdate', 'getSettings', 'updateSettings', 'getQwenModelState', 'downloadQwenModel', 'cancelQwenModelDownload', 'deleteQwenModel', 'startQwenService', 'unloadQwenService', 'startRealtime', 'sendRealtimeAudio', 'finishRealtime', 'cancelRealtime']
+  if (JSON.stringify(descriptors.map(({ method }) => method).sort()) !== JSON.stringify(expected.sort())) fail('the Remote surface must contain only Qwen, general settings, and About methods')
   for (const { subject, codec } of codecs) {
     if (codec?.mode !== 'strict') fail(`${subject} must use a strict codec`)
     if (typeof codec?.create !== 'function') fail(`${subject} must provide a create() factory`)

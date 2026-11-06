@@ -1,6 +1,6 @@
 # Project documents
 
-- [Usage: 中文](usage.zh.md) / [English](usage.en.md): recognition, polishing, settings, and limits
+- [Usage: 中文](usage.zh.md) / [English](usage.en.md): local Qwen recognition, settings, and limits
 - [Architecture](architecture.md): Host/Client, models, Remote wire, drafts, and lifecycle
 - [Development](development.md): dependencies, local loading, build, and verification
 - [Open work](roadmap.md): unresolved protocol and validation work

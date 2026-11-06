@@ -29,16 +29,14 @@
 
 .button[data-state='starting'],
 .button[data-state='recording'],
-.button[data-state='transcribing'],
-.button[data-state='polishing'] {
+.button[data-state='transcribing'] {
   background: var(--dsw-alias-button-info-fill);
   color: #fff;
 }
 
 .button[data-state='starting']:hover:not(:disabled):not([aria-disabled='true']),
 .button[data-state='recording']:hover:not(:disabled):not([aria-disabled='true']),
-.button[data-state='transcribing']:hover:not(:disabled):not([aria-disabled='true']),
-.button[data-state='polishing']:hover:not(:disabled):not([aria-disabled='true']) {
+.button[data-state='transcribing']:hover:not(:disabled):not([aria-disabled='true']) {
   background: var(--dsw-alias-button-info-hover);
   color: #fff;
 }
@@ -48,8 +46,7 @@
   color: var(--dsw-alias-state-warn-label);
 }
 
-.button[data-state='upstream-error'],
-.button[data-state='polish-error'] {
+.button[data-state='upstream-error'] {
   background: var(--dsw-alias-interactive-bg-hover-danger);
   color: var(--dsw-alias-state-error-primary);
 }

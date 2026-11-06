@@ -34,27 +34,13 @@ body:
     attributes:
       label: Steps to reproduce
       placeholder: |
-        1. Settings → Recognition → Groq, model already selected
+        1. Settings → Recognition → Qwen model installed
         2. Click the composer microphone
         3. Speak, then press Ctrl+Shift+Space
       value: |
         1.
         2.
         3.
-    validations:
-      required: true
-
-  - type: dropdown
-    id: backend
-    attributes:
-      label: Recognition backend
-      options:
-        - Web Speech
-        - Local Whisper
-        - Groq
-        - Alibaba Cloud Model Studio (Bailian)
-        - Custom OpenAI-compatible
-        - Not sure / not reached
     validations:
       required: true
 
@@ -94,7 +80,7 @@ body:
     id: browser
     attributes:
       label: Browser
-      description: Needed for Web Speech and the composer UI.
+      description: Needed for microphone capture and the composer UI.
       placeholder: Chrome 139 / Arc / Edge
     validations:
       required: true

@@ -1,5 +1,5 @@
-/** The sample rate expected by the local Whisper runtime. */
-export const WHISPER_SAMPLE_RATE = 16_000
+/** The sample rate expected by the local Qwen3-ASR audio stream. */
+export const PCM_SAMPLE_RATE = 16_000
 
 /**
  * A channel-oriented Float32 PCM source. The channel arrays are borrowed and
@@ -123,9 +123,9 @@ function monoSampleAt(source: ChannelSource, frame: number): number {
   return clippedSample(average)
 }
 
-function whisperFrameCount(source: ChannelSource): number {
+function resampledFrameCount(source: ChannelSource): number {
   if (source.frameCount === 0) return 0
-  return Math.max(1, Math.round(source.frameCount * WHISPER_SAMPLE_RATE / source.sampleRate))
+  return Math.max(1, Math.round(source.frameCount * PCM_SAMPLE_RATE / source.sampleRate))
 }
 
 function resampledSampleAt(source: ChannelSource, outputFrame: number, outputFrameCount: number): number {
@@ -173,9 +173,9 @@ function pcm16Sample(value: number): number {
  * PCM. The source channel arrays are borrowed; only the returned output is
  * allocated.
  */
-export function normalizeToWhisperPcm(input: PcmAudioInput): Float32Array {
+export function normalizeToMonoPcm(input: PcmAudioInput): Float32Array {
   const source = sourceFromInput(input)
-  const outputFrameCount = whisperFrameCount(source)
+  const outputFrameCount = resampledFrameCount(source)
   assertWavSampleCount(outputFrameCount)
   const output = new Float32Array(outputFrameCount)
   for (let frame = 0; frame < output.length; frame += 1) {
@@ -189,7 +189,7 @@ export function normalizeToWhisperPcm(input: PcmAudioInput): Float32Array {
  * clipped and non-finite values are encoded as silence. This function does
  * not resample; use {@link audioToPcm16Wav} for arbitrary input audio.
  */
-export function encodePcm16Wav(samples: Float32Array, sampleRate = WHISPER_SAMPLE_RATE): Uint8Array {
+export function encodePcm16Wav(samples: Float32Array, sampleRate = PCM_SAMPLE_RATE): Uint8Array {
   assertWavSampleRate(sampleRate)
   assertWavSampleCount(samples.length)
   const wav = new Uint8Array(WAV_HEADER_BYTES + samples.length * 2)
@@ -208,11 +208,11 @@ export function encodePcm16Wav(samples: Float32Array, sampleRate = WHISPER_SAMPL
  */
 export function audioToPcm16Wav(input: PcmAudioInput): Uint8Array {
   const source = sourceFromInput(input)
-  const outputFrameCount = whisperFrameCount(source)
+  const outputFrameCount = resampledFrameCount(source)
   assertWavSampleCount(outputFrameCount)
   const wav = new Uint8Array(WAV_HEADER_BYTES + outputFrameCount * 2)
   const view = new DataView(wav.buffer, wav.byteOffset, wav.byteLength)
-  writeWavHeader(view, WHISPER_SAMPLE_RATE, outputFrameCount)
+  writeWavHeader(view, PCM_SAMPLE_RATE, outputFrameCount)
   for (let frame = 0; frame < outputFrameCount; frame += 1) {
     view.setInt16(WAV_HEADER_BYTES + frame * 2, pcm16Sample(resampledSampleAt(source, frame, outputFrameCount)), true)
   }

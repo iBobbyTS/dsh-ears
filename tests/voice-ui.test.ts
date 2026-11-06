@@ -12,11 +12,11 @@ describe('VoiceRecognitionBar error labels', () => {
   it('renders a structured configuration error instead of the generic voice error', () => {
     const display: VoiceStatusDisplay = {
       state: 'error',
-      detail: 'The cloud ASR model is not configured',
-      detailCode: EARS_ERROR_CODES.asrModelNotConfigured
+      detail: 'dsh-ears settings are unavailable',
+      detailCode: EARS_ERROR_CODES.settingsUnavailable
     }
 
-    expect(statusLabel(display, translateZh)).toBe(localeZh.errorAsrModelNotConfigured)
+    expect(statusLabel(display, translateZh)).toBe(localeZh.errorSettingsUnavailable)
     expect(statusLabel(display, translateZh)).not.toBe(localeZh.voiceError)
   })
 

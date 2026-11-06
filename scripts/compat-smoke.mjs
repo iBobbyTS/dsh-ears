@@ -21,48 +21,25 @@ const DSH_VENDOR_PINS = Object.freeze({
   '0.2.1-rc.2': { cordis: '4.0.5', schemastery: '3.18.5' }
 })
 
-/**
- * Which settings document the smoke starts from.
- *
- * - `fresh`: an empty profile.
- * - `canonical`: the v4 section dsh-ears 0.3.x wrote, seeded into the legacy
- *   `settings.yaml` the Host imports into the profile entry config.
- * - `legacy`: the pre-0.3 flat section, which uses undeclared field names.
- */
-export const SMOKE_SCENARIOS = Object.freeze(['fresh', 'canonical', 'legacy'])
-
-/** A complete v4 document with placeholder credentials. */
+/** Fresh profile or a synthetic existing Qwen/general settings document. */
+export const SMOKE_SCENARIOS = Object.freeze(['fresh', 'canonical'])
 function canonicalSettingsDocument() {
   return {
     schemaVersion: 4,
-    general: {
-      displayName: 'dsh-ears',
-      shortcut: { enabled: true, value: 'ctrl+shift+space' },
-      soundsEnabled: true
-    },
-    recognition: {
-      backend: 'cloud-openai',
-      webSpeech: { language: '' },
-      localWhisper: { model: 'tiny', acceleration: 'default', language: '' },
-      cloudProvider: 'groq',
-      maxRecordingSeconds: 120
-    },
-    cloudAsr: {
-      groq: { apiKey: 'gsk_canonical_fixture', model: 'whisper-large-v3-turbo', language: '' }
-    },
-    polishing: { enabled: true, provider: '', model: '', reasoningEffort: '', prompt: '' }
+    general: { displayName: 'voice', shortcut: { enabled: false, value: 'ctrl+alt+space' }, soundsEnabled: false },
+    recognition: { localQwen: { model: '0.6b-8bit', idleTtlMinutes: 17, prompt: 'Synthetic Qwen context' }, maxRecordingSeconds: 98 }
   }
 }
-
-/** The flat section a pre-0.3 dsh-ears stored. */
-function legacySettingsDocument() {
-  return {
-    asrBackend: 'cloud-openai',
-    cloudAsrProvider: 'groq',
-    cloudAsrApiKey: 'gsk_legacy_fixture',
-    cloudAsrModel: 'whisper-large-v3-turbo',
-    maxRecordingSeconds: 120
-  }
+function assertQwenSettingsView(value) {
+  const expected = ['localQwenModel', 'localQwenIdleTtlMinutes', 'localQwenPrompt', 'maxRecordingSeconds', 'voiceShortcutEnabled', 'voiceShortcut', 'voiceSoundsEnabled', 'settingsDisplayName']
+  if (value?.available !== true || JSON.stringify(Object.keys(value.settings ?? {}).sort()) !== JSON.stringify(expected.sort())) throw new Error('getSettings must expose exactly Qwen and general settings')
+  if (Object.keys(value).some((key) => /cloud|whisper|polish|backend/iu.test(key))) throw new Error('getSettings must omit removed feature metadata')
+}
+function assertRetainedSettings(value, scenario) {
+  assertQwenSettingsView(value)
+  if (scenario !== 'canonical') return
+  const expected = { localQwenModel: '0.6b-8bit', localQwenIdleTtlMinutes: 17, localQwenPrompt: 'Synthetic Qwen context', settingsDisplayName: 'voice', voiceShortcutEnabled: false, voiceShortcut: 'ctrl+alt+space', voiceSoundsEnabled: false }
+  for (const [key, setting] of Object.entries(expected)) if (value.settings[key] !== setting) throw new Error(`retained setting changed: ${key}`)
 }
 
 function resolveWindowsCommand(command) {
@@ -245,7 +222,6 @@ async function prepareSmokeProject({ projectRoot, smokeProject, dshVersion, pnpm
   const tarball = join(smokeProject, tarballName)
   const allowedBuilds = [
     '@deepseek-ai/dsh-subprocess-local',
-    '@fugood/whisper.node',
     '@google/genai',
     'koffi',
     'node-pty',
@@ -293,7 +269,7 @@ const SETTINGS_POLL_INTERVAL_MS = 250
  *
  * The Host imports a legacy `settings.yaml` only after the Loader has settled
  * every entry, so the first read after boot can precede the imported values.
- * Measured on dsh `0.2.0-rc.1`: the seeded canonical model, credential, and
+ * Measured on dsh `0.2.0-rc.1`: the seeded Qwen model and
  * backend were all live 2 s after the first read that still showed the
  * defaults. Polling keeps the canonical assertions strict without making them
  * depend on how fast one host finishes that import.
@@ -303,7 +279,7 @@ async function waitForSettingsValue(baseUrl, cookie, predicate, description) {
   let value = await callRemote(baseUrl, cookie, 'dshEars/getSettings', {})
   while (!predicate(value)) {
     if (Date.now() >= deadline) {
-      throw new Error(`settings did not reach ${description} within ${SETTINGS_SETTLE_TIMEOUT_MS}ms: ${JSON.stringify({ model: value?.settings?.cloudAsrGroqModel, backend: value?.settings?.asrBackend, credential: value?.cloudAsrGroqApiKeyConfigured })}`)
+      throw new Error(`settings did not reach ${description} within ${SETTINGS_SETTLE_TIMEOUT_MS}ms: ${JSON.stringify({ model: value?.settings?.localQwenModel })}`)
     }
     await new Promise((resolve) => setTimeout(resolve, SETTINGS_POLL_INTERVAL_MS))
     value = await callRemote(baseUrl, cookie, 'dshEars/getSettings', {})
@@ -335,7 +311,7 @@ async function bootWeb({ dshBin, projectRoot, env }) {
  * local package, install the target DSH peer family, boot the web Host, fetch
  * the Client contribution, and invoke the strict getSettings Remote endpoint.
  * This is intentionally not called an end-to-end ASR test; it does not contact
- * an ASR provider or an LLM.
+ * a microphone, ASR model, or download.
  */
 export async function runCompatibilitySmoke({ projectRoot = resolve(fileURLToPath(new URL('..', import.meta.url))), dshVersion, scenario = 'fresh', pnpm = 'pnpm' } = {}) {
   if (!VERIFIED_DSH_SMOKE_VERSIONS.includes(dshVersion)) {
@@ -356,7 +332,7 @@ export async function runCompatibilitySmoke({ projectRoot = resolve(fileURLToPat
     if (scenario !== 'fresh') {
       // The Host imports the removed settings.yaml into the profile entry config
       // once the composition settles. JSON is valid YAML, so no emitter is needed.
-      const section = scenario === 'canonical' ? canonicalSettingsDocument() : legacySettingsDocument()
+      const section = canonicalSettingsDocument()
       await writeFile(join(smokeHome, 'settings.yaml'), `${JSON.stringify({ 'dsh-ears': section }, null, 2)}\n`)
       console.log(`[compat] seeded a ${scenario} settings.yaml`)
     }
@@ -375,37 +351,17 @@ export async function runCompatibilitySmoke({ projectRoot = resolve(fileURLToPat
     const clientResponse = await waitForHttp(baseUrl, clientEntry[1], undefined)
     if (!clientResponse.ok) throw new Error(`dsh-ears Client bundle returned HTTP ${clientResponse.status}`)
 
-    const value = await callRemote(baseUrl, cookie, 'dshEars/getSettings', {})
-    if (value?.available !== true || typeof value?.settings?.asrBackend !== 'string') throw new Error('getSettings returned an invalid settings view')
-    for (const field of ['cloudAsrGroqApiKey', 'cloudAsrDeepgramApiKey', 'cloudAsrCustomApiKey', 'cloudAsrBailianApiKey', 'cloudAsrTencentSecretKey', 'cloudAsrMimoApiKey', 'cloudAsrSiliconFlowApiKey', 'cloudAsrVolcengineApiKey']) {
-      if (value.settings[field] !== '') throw new Error(`getSettings exposed the write-only field ${field}`)
-    }
-    if (value.settings.webSpeechLanguage === 'en-US') throw new Error('the smoke project already stores its probe value')
-
-    console.log(`[compat] checking the ${scenario} settings document`)
-    if (scenario === 'canonical') {
-      // The legacy document is renamed before the Host writes anything, so it is
-      // consumed even when the section cannot be mapped.
-      if (!existsSync(join(smokeHome, 'settings.yaml.imported'))) throw new Error('the legacy settings document was not renamed after import')
-      if (existsSync(join(smokeHome, 'settings.yaml'))) throw new Error('the legacy settings document was not consumed')
-      // The v4 section dsh-ears 0.3.x wrote must be imported into the profile
-      // entry config, read live, and keep its secret Host-side only.
-      const imported = await waitForSettingsValue(baseUrl, cookie, (candidate) => candidate?.settings?.cloudAsrGroqModel === 'whisper-large-v3-turbo', 'the seeded canonical model')
-      if (imported.cloudAsrGroqApiKeyConfigured !== true) throw new Error('the seeded canonical credential did not reach the Host')
-    }
-    if (scenario === 'legacy') {
-      // Diagnostic until the observed behavior is codified: the pre-0.3 section
-      // uses undeclared field names, which the Host refuses to import.
-      console.log(`[compat] legacy model=${JSON.stringify(value.settings.cloudAsrGroqModel)} credential=${value.cloudAsrGroqApiKeyConfigured} imported=${existsSync(join(smokeHome, 'settings.yaml.imported'))}`)
-    }
+    let value = await callRemote(baseUrl, cookie, 'dshEars/getSettings', {})
+    if (scenario === 'canonical') value = await waitForSettingsValue(baseUrl, cookie, (candidate) => candidate?.settings?.localQwenModel === '0.6b-8bit', 'the seeded Qwen model')
+    assertRetainedSettings(value, scenario)
 
     // The 0.1.7 settings model derives the form from the exported Config and
     // writes into the profile entry config. The write must apply live and
     // survive a restart, not only live in a registered namespace.
     console.log('[compat] writing a settings field through the strict Remote')
-    const written = await callRemote(baseUrl, cookie, 'dshEars/updateSettings', { patch: { webSpeechLanguage: 'en-US' } })
-    if (written?.available !== true || written.settings.webSpeechLanguage !== 'en-US') {
-      throw new Error(`updateSettings did not apply the write: ${JSON.stringify(written?.settings?.webSpeechLanguage)}`)
+    const written = await callRemote(baseUrl, cookie, 'dshEars/updateSettings', { patch: { maxRecordingSeconds: 321 } })
+    if (written?.available !== true || written.settings.maxRecordingSeconds !== 321) {
+      throw new Error(`updateSettings did not apply the write: ${JSON.stringify(written?.settings?.maxRecordingSeconds)}`)
     }
 
     console.log('[compat] restarting dsh web to read the write back')
@@ -415,18 +371,11 @@ export async function runCompatibilitySmoke({ projectRoot = resolve(fileURLToPat
     const restartedRoot = await waitForHttp(second.baseUrl, '/', { headers: { cookie: second.cookie } })
     if (!restartedRoot.ok) throw new Error(`dsh web root returned HTTP ${restartedRoot.status} after the restart`)
     const restarted = await callRemote(second.baseUrl, second.cookie, 'dshEars/getSettings', {})
-    if (restarted?.settings?.webSpeechLanguage !== 'en-US') {
+    if (restarted?.settings?.maxRecordingSeconds !== 321) {
       throw new Error('the settings write did not survive a dsh web restart')
     }
-    if (scenario === 'canonical') {
-      // An unrelated save and a restart must not disturb the imported section.
-      const reimported = await waitForSettingsValue(second.baseUrl, second.cookie, (candidate) => candidate?.settings?.cloudAsrGroqModel === 'whisper-large-v3-turbo', 'the imported canonical model after the restart')
-      if (reimported.cloudAsrGroqApiKeyConfigured !== true) throw new Error('the imported credential did not survive the write and restart')
-    }
-    if (scenario === 'legacy') {
-      console.log(`[compat] legacy after write model=${JSON.stringify(restarted.settings.cloudAsrGroqModel)} credential=${restarted.cloudAsrGroqApiKeyConfigured}`)
-    }
-
+    assertRetainedSettings(written, scenario)
+    assertRetainedSettings(restarted, scenario)
     return { dshVersion, scenario, baseUrl, clientServed: true, settingsLoaded: true, settingsPersisted: true }
   } finally {
     console.log('[compat] stopping dsh web and cleaning temporary projects')
@@ -438,7 +387,7 @@ export async function runCompatibilitySmoke({ projectRoot = resolve(fileURLToPat
 }
 
 function printHelp() {
-  console.log('Usage: node scripts/compat-smoke.mjs --dsh-version <version> [--scenario fresh|canonical|legacy]')
+  console.log('Usage: node scripts/compat-smoke.mjs --dsh-version <version> [--scenario fresh|canonical]')
   console.log(`Verified versions: ${VERIFIED_DSH_SMOKE_VERSIONS.join(', ')}`)
   console.log(`Scenarios: ${SMOKE_SCENARIOS.join(', ')} (default: every scenario, one isolated profile each)`)
   console.log('Boots a temporary dsh web profile with the local plugin, calls getSettings, writes a settings field, restarts, and reads it back.')
@@ -456,12 +405,12 @@ if (invokedPath === modulePath) {
     const scenarioIndex = args.indexOf('--scenario')
     const scenario = scenarioIndex >= 0 ? args[scenarioIndex + 1] : undefined
     // Every scenario runs by default so a certification pass covers the fresh
-    // install and both upgrade documents instead of only the first one.
+    // install and the retained Qwen/general document.
     const scenarios = scenario === undefined ? SMOKE_SCENARIOS : [scenario]
     try {
       for (const selected of scenarios) {
         const result = await runCompatibilitySmoke({ dshVersion, scenario: selected })
-        console.log(`Compatibility smoke passed for dsh ${result.dshVersion} (${result.scenario}): Client asset served, getSettings returned a redacted view, and a settings write survived a restart`)
+        console.log(`Compatibility smoke passed for dsh ${result.dshVersion} (${result.scenario}): Client asset served, getSettings returned a Qwen-only view, and a settings write survived a restart`)
       }
     } catch (error) {
       console.error(error instanceof Error ? error.message : String(error))

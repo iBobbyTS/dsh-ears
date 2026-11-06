@@ -2,7 +2,7 @@
 
 [中文](README.md) · English
 
-Voice input, live transcription, and optional LLM polishing for DSH Web UI and Desktop. Results stay in an editable draft for manual sending. Backends include browser Web Speech, local Whisper, local Qwen3-ASR MLX on Apple Silicon, and cloud ASR providers.
+Voice input and live transcription with local Qwen3-ASR MLX for DSH Web UI and Desktop. Results stay in an editable draft for manual sending. Requires Apple Silicon macOS.
 
 This is a fork of [WizisCool/dsh-ears](https://github.com/WizisCool/dsh-ears). Build the checkout below to install this fork; the upstream npm package and the in-app upstream npm version information do not contain this fork's changes.
 
@@ -33,11 +33,9 @@ Use the full path in Windows cmd. Restart the DSH Host and refresh the page. To 
 
 ## Use
 
-Choose a backend on the dsh-ears settings page. Start/stop with the Composer microphone or `Ctrl+Shift+Space`; review the draft and send manually. Manual edits are preserved.
+Start/stop with the Composer microphone or `Ctrl+Shift+Space`; review the draft and send manually. Configure the model, context prompt, and idle TTL in Recognition settings.
 
-- Local Qwen requires Apple Silicon macOS and discoverable Python 3.10+. Install its environment/model in Recognition settings, then record directly without a separate server. First-time downloads need PyPI/Hugging Face access.
-- Whisper downloads GGML models in settings and uses the bundled native runtime without Python/FFmpeg.
-- Web Speech may be processed by the browser vendor. Cloud backends require credentials. Optional polishing uses a configured DSH model and incurs usage.
+Local Qwen requires Apple Silicon macOS and discoverable Python 3.10+. Install its environment/model in Recognition settings, then record directly without a separate server. First-time downloads need PyPI/Hugging Face access; inference stays local.
 
 ## Documentation
 

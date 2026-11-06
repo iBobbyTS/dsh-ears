@@ -18,8 +18,8 @@ type StopListener = () => void
 export const VOICE_WAVEFORM_SLOTS = 128
 export const VOICE_ERROR_DISMISS_MS = 2600
 
-const NOTICE_STATES = new Set<VoiceInputState>(['error', 'polish-error', 'upstream-error'])
-const DISCARDABLE_STATES = new Set<VoiceInputState>(['transcribing', 'polishing'])
+const NOTICE_STATES = new Set<VoiceInputState>(['error', 'upstream-error'])
+const DISCARDABLE_STATES = new Set<VoiceInputState>(['transcribing'])
 
 export type RecognitionBarAction = 'stop' | 'discard' | 'busy'
 
@@ -31,7 +31,7 @@ export function createVoiceStateSetter(session: VoiceInputSession): VoiceStateSe
   }
 }
 
-/** Recording keeps the stop square; transcribe/polish swap it for discard. */
+/** Recording keeps the stop square; transcription swap it for discard. */
 export function recognitionBarAction(state: VoiceInputState): RecognitionBarAction {
   if (state === 'recording') return 'stop'
   if (DISCARDABLE_STATES.has(state)) return 'discard'

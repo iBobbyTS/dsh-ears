@@ -1,7 +1,6 @@
 import { vi } from 'vitest'
 import { EarsSettingsSchema } from '../../src/config-schema.js'
 import { DEFAULT_EARS_SETTINGS, SETTINGS_NAMESPACE, type EarsSettings } from '../../src/config.js'
-import { CLOUD_ASR_PROVIDERS } from '../../src/asr/providers.js'
 import { unflattenEarsSettings } from '../../src/settings-store.js'
 
 /**
@@ -36,10 +35,7 @@ type FakeSettingsFormsOptions = {
   described?: boolean
 }
 
-const SECRET_PATHS: readonly (readonly string[])[] = CLOUD_ASR_PROVIDERS.map((provider) => {
-  const definition = provider.fields.find((candidate) => candidate.field === provider.credentialField)
-  return ['cloudAsr', provider.storageKey, definition?.storageKey ?? 'apiKey']
-})
+const SECRET_PATHS: readonly (readonly string[])[] = []
 
 /** A profile document for settings that are already in their canonical flat form. */
 export function settingsDocument(settings: EarsSettings | Record<string, unknown>): Record<string, unknown> {

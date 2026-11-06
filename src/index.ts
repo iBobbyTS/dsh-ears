@@ -1,6 +1,6 @@
 import type { Context } from '@deepseek-ai/cordis'
 import { EarsSettingsSchema } from './config-schema.js'
-import { PolishService } from './polish/service.js'
+import { QwenService } from './asr/service.js'
 
 export const name = 'dsh-ears'
 
@@ -17,7 +17,7 @@ export async function apply(ctx: Context): Promise<void> {
   const disposePresentation = ctx.settings.configure({ auto: false })
   ctx.effect(() => disposePresentation, 'dsh-ears settings presentation')
 
-  await ctx.plugin(PolishService)
+  await ctx.plugin(QwenService)
 
   ctx.effect(() => {
     return () => undefined

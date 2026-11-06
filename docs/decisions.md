@@ -8,52 +8,52 @@ These ADRs preserve upstream design and release history. The status index record
 | --- | --- | --- |
 | D-001 | Project identity | Accepted |
 | D-002 | Interaction contract | Accepted |
-| D-003 | First ASR milestone | Historical: M2 was Web Speech only. Whisper and cloud ASR later shipped. |
-| D-004 | LLM ownership | Accepted |
+| D-003 | First ASR milestone | Superseded where it requires removed backends or polishing; local Qwen-only scope is current. |
+| D-004 | LLM ownership | Superseded for removed backends/polishing; retained Qwen/general behavior follows architecture.md. |
 | D-005 | Host/Client packaging | Accepted |
 | D-006 | Compatibility | Extended by D-030, D-034, D-035, D-050, and D-051. Current floor and compile-baseline decisions are D-058 and D-059; see architecture.md for this fork's current validation scope. |
-| D-007 | Deferred scope | Partially superseded. Whisper and cloud ASR shipped. Emotion UI remains deferred (D-015). |
+| D-007 | Deferred scope | Superseded for removed backends/polishing; retained Qwen/general behavior follows architecture.md. |
 | D-008 | Language and public quality | Accepted. Public landing page is Chinese-first. |
 | D-009 | Release safety | Accepted. First public release authorized 2026-08-19. Later push/publish/visibility still need explicit approval. |
 | D-010 | Codex-style microphone | Accepted; revised by D-027. |
 | D-011 | Plugins-page card | **Superseded by D-017.** Live surface is `settings.section`. |
 | D-012 | Theme and composer order | Accepted |
 | D-013 | Remote invocation scope | Accepted |
-| D-014 | Final ASR backends | Architecture accepted. Cloud key model **reversed by D-023 / D-032** (per-provider `role('secret')`, not dsh credential-references). |
+| D-014 | Final ASR backends | Superseded for removed backends/polishing; retained Qwen/general behavior follows architecture.md. |
 | D-015 | Emotion deferred | Accepted |
 | D-016 | License and repository | Historical upstream identity. MIT and attribution remain; current fork is `iBobbyTS/dsh-ears`. |
 | D-017 | Dedicated settings page | Accepted (live) |
-| D-018 | Recording-settings snapshot | **Open** |
-| D-019 | Whisper cache integrity | Closed by D-020 |
-| D-020 | Whisper robustness | Partially superseded by D-039; integrity and lifecycle rules remain live, Python/CLI assumptions do not |
-| D-021 | Microphone availability gating | Accepted |
-| D-022 | Click-through to settings | Rejected |
-| D-023 | Cloud provider presets + secret keys | Accepted; extended by D-032 |
-| D-024 | Per-field validate-on-edit | Accepted |
+| D-018 | Recording-settings snapshot | Superseded for removed backends/polishing; retained Qwen/general behavior follows architecture.md. |
+| D-019 | Whisper cache integrity | Superseded for removed backends/polishing; retained Qwen/general behavior follows architecture.md. |
+| D-020 | Whisper robustness | Superseded for removed backends/polishing; retained Qwen/general behavior follows architecture.md. |
+| D-021 | Microphone availability gating | Superseded for removed backends/polishing; retained Qwen/general behavior follows architecture.md. |
+| D-022 | Click-through to settings | Superseded for removed backends/polishing; retained Qwen/general behavior follows architecture.md. |
+| D-023 | Cloud provider presets + secret keys | Superseded for removed backends/polishing; retained Qwen/general behavior follows architecture.md. |
+| D-024 | Per-field validate-on-edit | Superseded for removed backends/polishing; retained Qwen/general behavior follows architecture.md. |
 | D-025 | No third-party form library | Accepted |
 | D-026 | Save/Discard footer | **Superseded by D-031.** Live save model is per-field auto-save. |
 | D-027 | Recognition dock | Accepted |
 | D-028 | Voice-input shortcut | Accepted. Default `Ctrl+Shift+Space`. **Modifier-only chords are valid.** |
-| D-029 | Custom polish prompt | Accepted |
+| D-029 | Custom polish prompt | Superseded where it requires removed backends or polishing; local Qwen-only scope is current. |
 | D-030 | Dual rc.6 / rc.7 | Accepted; extended by D-034 and D-035. |
 | D-031 | Auto-save uncarded settings | Accepted (live save model) |
-| D-032 | Bailian + per-provider keys | Accepted |
+| D-032 | Bailian + per-provider keys | Superseded for removed backends/polishing; retained Qwen/general behavior follows architecture.md. |
 | D-033 | About tab | Accepted. First public release authorized 2026-08-19. |
 | D-034 | Triple host compatibility for rc.6, rc.7, and rc.8 | Accepted; peer floor superseded by D-035 |
 | D-035 | dsh 0.1.1 compatibility and open peers | Accepted for dsh-ears `<0.3.0`; superseded for the current release line by D-050 and D-051. |
 | D-036 | Wire-safe optional fields on strict RPC results | Accepted |
-| D-037 | OS-aware Local Whisper setup guidance | **Fully superseded by D-039.** |
+| D-037 | OS-aware Local Whisper setup guidance | Superseded for removed backends/polishing; retained Qwen/general behavior follows architecture.md. |
 | D-038 | User-facing copy style | Accepted; revises D-024's punctuation rule |
-| D-039 | Native whisper.node runtime and fixed configuration slots | Accepted |
-| D-040 | Tencent Cloud product selector | Superseded by D-041 |
-| D-041 | Tencent Cloud standard and realtime recognition | Accepted |
-| D-042 | Per-provider recognition language | Accepted. Supersedes the D-028 recognition-language row placement and the D-032 shared-row reference. |
-| D-043 | Deepgram cloud ASR and dual recording-file/realtime services | Accepted |
-| D-044 | Xiaomi MiMo cloud ASR with API and Token Plan access | Accepted |
-| D-045 | Local Whisper and Agent-default polish defaults | Partially superseded by D-046; polish defaults remain live |
-| D-046 | Web Speech first-run recognition default | Accepted. New or incomplete settings default to Web Speech; explicit backend choices remain unchanged. |
-| D-047 | SiliconFlow CN cloud ASR with deferred international edition | Accepted |
-| D-048 | Volcengine streaming and recording-file recognition | Accepted; implementation tracks issue #37 |
+| D-039 | Native whisper.node runtime and fixed configuration slots | Superseded for removed backends/polishing; retained Qwen/general behavior follows architecture.md. |
+| D-040 | Tencent Cloud product selector | Superseded for removed backends/polishing; retained Qwen/general behavior follows architecture.md. |
+| D-041 | Tencent Cloud standard and realtime recognition | Superseded for removed backends/polishing; retained Qwen/general behavior follows architecture.md. |
+| D-042 | Per-provider recognition language | Superseded for removed backends/polishing; retained Qwen/general behavior follows architecture.md. |
+| D-043 | Deepgram cloud ASR and dual recording-file/realtime services | Superseded for removed backends/polishing; retained Qwen/general behavior follows architecture.md. |
+| D-044 | Xiaomi MiMo cloud ASR with API and Token Plan access | Superseded for removed backends/polishing; retained Qwen/general behavior follows architecture.md. |
+| D-045 | Local Whisper and Agent-default polish defaults | Superseded for removed backends/polishing; retained Qwen/general behavior follows architecture.md. |
+| D-046 | Web Speech first-run recognition default | Superseded for removed backends/polishing; retained Qwen/general behavior follows architecture.md. |
+| D-047 | SiliconFlow CN cloud ASR with deferred international edition | Superseded for removed backends/polishing; retained Qwen/general behavior follows architecture.md. |
+| D-048 | Volcengine streaming and recording-file recognition | Superseded for removed backends/polishing; retained Qwen/general behavior follows architecture.md. |
 | D-049 | dsh 0.1.2 development line | Historical development baseline; promoted and superseded by D-050. |
 | D-050 | dsh 0.1.2-rc.1 promotion and dsh-ears 0.3.0 | Superseded by D-051 for the compatibility range; migration and certification history remains. |
 | D-051 | dsh 0.1.2-rc.1 open minimum | Accepted for dsh-ears `0.3.x`; superseded as the floor for dsh-ears `>=0.4.0` by D-056. |
@@ -65,7 +65,9 @@ These ADRs preserve upstream design and release history. The status index record
 | D-057 | Windows/desktop browser smoke waived for dsh-ears 0.4.0 | Historical upstream release gate and 0.4.0 waiver. It does not create a release gate for this fork; current checks follow AGENTS and the development guide. |
 | D-058 | dsh 0.2.0 port, desktop support, and the dsh-ears 0.4.1 dsh floor | Accepted (live compatibility and desktop policy). Supersedes D-056's `>=0.1.7-rc.2` minimum for dsh-ears `>=0.4.1`. |
 | D-059 | dsh 0.2.1 baseline for dsh-ears 0.4.2 | Accepted. Moves the compile, lockfile, and certification baseline to `0.2.1-rc.2` while keeping D-058's `>=0.2.0-rc.1` peer minimum. |
-| D-060 | Bailian upgraded-console model guidance | Accepted. Extends D-032 with synchronous-model validation and Qwen-Audio 3.1 no-word handling. |
+| D-060 | Bailian upgraded-console model guidance | Superseded where it requires removed backends or polishing; local Qwen-only scope is current. |
+
+Current product scope is local Qwen3-ASR MLX only, with no text polishing. Historical bodies below are retained as decisions made at the time; current behavior is owned by [architecture](architecture.md).
 
 ## D-001 — Project identity
 
