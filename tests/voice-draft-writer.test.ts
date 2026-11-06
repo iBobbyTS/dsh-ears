@@ -64,4 +64,17 @@ describe('VoiceDraftWriter', () => {
     expect(writer.update('ASR')).toBe(false)
     expect(editor.value()).toBe('before manual')
   })
+  it('freezes accepted text without editing it or permitting late cancellation', () => {
+    const editor = fakeEditor()
+    const writer = new VoiceDraftWriter(editor.actions)
+    writer.update('accepted')
+    const revision = editor.actions.captureInsertion().draftRev
+    writer.freeze()
+    expect(writer.isInvalidated).toBe(true)
+    expect(editor.actions.captureInsertion().draftRev).toBe(revision)
+    expect(writer.update('late hypothesis')).toBe(false)
+    writer.cancel()
+    expect(editor.value()).toBe('before accepted')
+  })
+
 })

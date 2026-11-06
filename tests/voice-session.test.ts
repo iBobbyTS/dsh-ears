@@ -138,4 +138,17 @@ describe('VoiceInputSession', () => {
     expect(stopListener).not.toHaveBeenCalled()
     expect(cancelListener).not.toHaveBeenCalled()
   })
+  it('gives each recording a fresh epoch and ignores invalidation from an older one', () => {
+    const session = new VoiceInputSession()
+    const first = session.beginRecording()
+    const second = session.beginRecording()
+    expect(session.isCurrentEpoch(first)).toBe(false)
+    expect(session.isCurrentEpoch(second)).toBe(true)
+    session.invalidateRecording(first)
+    expect(session.isCurrentEpoch(second)).toBe(true)
+    session.invalidateRecording(second)
+    expect(session.isCurrentEpoch(second)).toBe(false)
+    session.dispose()
+  })
+
 })

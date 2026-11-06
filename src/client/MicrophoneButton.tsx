@@ -10,13 +10,24 @@ import { RealtimeAudioCaptureSession, isRealtimeAudioCaptureAvailable } from './
 import type { EarsRemote } from '../remote.js'
 import styles from './MicrophoneButton.module.css'
 import { classifyVoiceFailure, failureMessage, remoteFailureDetail, remoteFailureParams } from './voice-error.js'
-import { isSupersededMediaCapture, reuseInFlightPromise } from './voice-capture.js'
 import { VoiceDraftWriter } from './voice-draft-writer.js'
 import { observeComposerSubmission } from './composer-submit.js'
 import { matchesShortcut } from '../shortcut.js'
 import { fallbackTranslate, localizedErrorText, type Translate } from './settings-locale.js'
 import { playClick, resumeSounds, retainSounds } from './sounds.js'
 import { createVoiceStateSetter, useVoiceInputSession, type VoiceInputSession } from './voice-session.js'
+
+type RecordingWork = {
+  readonly controller: AbortController
+  readonly writer: VoiceDraftWriter
+  readonly epoch: number
+  capture: RealtimeAudioCaptureSession | null
+  ready: Promise<string> | null
+  sessionId: string | null
+  levelMonitor: AudioLevelMonitor | null
+  timer: ReturnType<typeof setTimeout> | null
+  stopping: Promise<void> | null
+}
 
 type VoiceInputButtonProps = {
   readonly useInput: SnapshotSelectorHook<InputState>
@@ -33,17 +44,7 @@ export function MicrophoneButton({ useInput, inputActions, remote, useEarsSettin
   const voiceSnapshot = useVoiceInputSession(voiceSession)
   const state = voiceSnapshot.state
   const setState = createVoiceStateSetter(voiceSession)
-  const realtimeCaptureRef = useRef<RealtimeAudioCaptureSession | null>(null)
-  const realtimeRemoteSessionIdRef = useRef<string | null>(null)
-  const realtimeReadyRef = useRef<Promise<string> | null>(null)
-  const realtimeStartAbortRef = useRef<AbortController | null>(null)
-  const realtimeWriterRef = useRef<VoiceDraftWriter | null>(null)
-  const levelMonitorRef = useRef<AudioLevelMonitor | null>(null)
-  const mediaStartCancelledRef = useRef(false)
-  const mediaStartGenerationRef = useRef(0)
-  const transcribeAbortRef = useRef<AbortController | null>(null)
-  const realtimeStopPromiseRef = useRef<{ key: RealtimeAudioCaptureSession; promise: Promise<void> } | null>(null)
-  const recordingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const recordingRef = useRef<RecordingWork | null>(null)
   const stopRecordingRef = useRef<(() => void | Promise<void>) | null>(null)
   const inputPhase = useInput((value) => value.phase)
   const actionsRef = useRef(inputActions)
@@ -117,34 +118,12 @@ export function MicrophoneButton({ useInput, inputActions, remote, useEarsSettin
 
   useEffect(() => {
     stopRecordingRef.current = null
-    const stop = voiceSession.onStopRequested(() => {
-      void stopRecordingRef.current?.()
-    })
+    const stop = voiceSession.onStopRequested(() => { void stopRecordingRef.current?.() })
     const cancel = voiceSession.onCancelRequested((preserveDraft) => {
-      mediaStartGenerationRef.current += 1
-      transcribeAbortRef.current?.abort()
-      mediaStartCancelledRef.current = true
-      realtimeStartAbortRef.current?.abort()
-      realtimeStartAbortRef.current = null
-      realtimeReadyRef.current = null
-      clearRecordingTimer(recordingTimerRef)
-      levelMonitorRef.current?.stop()
-      levelMonitorRef.current = null
-      const realtimeCapture = realtimeCaptureRef.current
-      realtimeCaptureRef.current = null
-      realtimeCapture?.abort()
-      const sessionId = realtimeRemoteSessionIdRef.current
-      realtimeRemoteSessionIdRef.current = null
-      if (sessionId !== null) void remote.cancelRealtime(sessionId)
-      const writer = realtimeWriterRef.current
-      if (preserveDraft) writer?.finalize(writer.text)
-      else writer?.cancel()
-      realtimeWriterRef.current = null
+      const work = recordingRef.current
+      if (work !== null) retireRecording(work, !preserveDraft)
     })
-    return () => {
-      stop()
-      cancel()
-    }
+    return () => { stop(); cancel() }
   }, [voiceSession])
 
   useEffect(() => {
@@ -164,24 +143,48 @@ export function MicrophoneButton({ useInput, inputActions, remote, useEarsSettin
     return () => {
       mountedRef.current = false
       stopRecordingRef.current = null
-      voiceSession.setState('idle')
-      levelMonitorRef.current?.stop()
-      levelMonitorRef.current = null
-      realtimeStartAbortRef.current?.abort()
-      realtimeStartAbortRef.current = null
-      realtimeReadyRef.current = null
-      realtimeCaptureRef.current?.abort()
-      realtimeCaptureRef.current = null
-      const realtimeSessionId = realtimeRemoteSessionIdRef.current
-      realtimeRemoteSessionIdRef.current = null
-      if (realtimeSessionId !== null) void remote.cancelRealtime(realtimeSessionId)
-      realtimeWriterRef.current?.cancel()
-      realtimeWriterRef.current = null
-      transcribeAbortRef.current?.abort()
-      clearRecordingTimer(recordingTimerRef)
+      const work = recordingRef.current
+      if (work !== null) {
+        const ownsEpoch = voiceSession.isCurrentEpoch(work.epoch)
+        retireRecording(work)
+        if (ownsEpoch) voiceSession.setState('idle')
+      }
       releaseSounds()
     }
   }, [voiceSession])
+
+  function isCurrentRecording(work: RecordingWork): boolean {
+    return mountedRef.current && recordingRef.current === work && !work.controller.signal.aborted && voiceSession.isCurrentEpoch(work.epoch)
+  }
+
+  function cancelRemoteSession(sessionId: string): void {
+    // Cleanup is best effort; the Host also bounds idle session lifetime.
+    void remote.cancelRealtime(sessionId).catch(() => undefined)
+  }
+
+  function retireRecording(work: RecordingWork, discard = false): void {
+    if (work.controller.signal.aborted) return
+    if (discard) work.writer.cancel()
+    else work.writer.freeze()
+    work.controller.abort()
+    voiceSession.invalidateRecording(work.epoch)
+    if (recordingRef.current === work) recordingRef.current = null
+    if (work.timer !== null) clearTimeout(work.timer)
+    work.timer = null
+    work.levelMonitor?.stop()
+    work.levelMonitor = null
+    work.capture?.abort()
+    work.capture = null
+    const sessionId = work.sessionId
+    work.sessionId = null
+    if (sessionId !== null) cancelRemoteSession(sessionId)
+  }
+
+  function failRecording(work: RecordingWork, error: unknown): void {
+    if (!isCurrentRecording(work)) return
+    retireRecording(work)
+    applyVoiceFailure(voiceSession, error)
+  }
 
   const active = state === 'starting' || state === 'recording'
   const busy = state === 'transcribing'
@@ -191,159 +194,107 @@ export function MicrophoneButton({ useInput, inputActions, remote, useEarsSettin
     </Tooltip>
   }
 
-  const stopRealtimeRecording = () => {
-    const capture = realtimeCaptureRef.current
-    const ready = realtimeReadyRef.current
-    let sessionId = realtimeRemoteSessionIdRef.current
-    if (capture === null || (sessionId === null && ready === null)) return Promise.resolve()
-    const writer = realtimeWriterRef.current
-    return reuseInFlightPromise(realtimeStopPromiseRef, capture, async () => {
-      playToggleClick(settingsRef.current, 0.4)
-      levelMonitorRef.current?.stop()
-      levelMonitorRef.current = null
-      const controller = new AbortController()
-      transcribeAbortRef.current = controller
-      const epoch = voiceSession.captureEpoch()
-      setState('transcribing')
+  const stopRecording = (work = recordingRef.current): Promise<void> => {
+    if (work === null || !isCurrentRecording(work)) return Promise.resolve()
+    if (work.stopping !== null) return work.stopping
+    if (work.timer !== null) clearTimeout(work.timer)
+    work.timer = null
+    playToggleClick(settingsRef.current, 0.4)
+    const capture = work.capture
+    if (capture === null) {
+      retireRecording(work)
+      setState('idle')
+      return Promise.resolve()
+    }
+    work.levelMonitor?.stop()
+    work.levelMonitor = null
+    setState('transcribing')
+    work.stopping = (async () => {
       try {
         await capture.stop()
-        sessionId ??= await ready!
-        if (!mountedRef.current || controller.signal.aborted || !voiceSession.isCurrentEpoch(epoch)) return
-        const result = await remote.finishRealtime(sessionId, controller.signal)
-        if (!mountedRef.current || controller.signal.aborted || !voiceSession.isCurrentEpoch(epoch)) return
-        if (!result.ok) {
-          applyVoiceFailure(voiceSession, result.error)
-          return
-        }
-        if (result.value.status === 'error') {
-          applyVoiceFailure(voiceSession, result.value)
-          return
-        }
-        const transcript = result.value.text.trim()
-        if (realtimeWriterRef.current === writer) realtimeWriterRef.current = null
-        if (writer === null) { setState('idle'); return }
-        if (!writer.finalize(transcript)) {
-          applyVoiceFailure(voiceSession, new Error(t('qwenDraftChanged')))
-          return
-        }
+        if (!isCurrentRecording(work)) return
+        const sessionId = await work.ready!
+        if (!isCurrentRecording(work)) return
+        const result = await remote.finishRealtime(sessionId, work.controller.signal)
+        if (!isCurrentRecording(work)) return
+        if (!result.ok) throw result.error
+        if (result.value.status === 'error') throw result.value
+        if (!work.writer.finalize(result.value.text.trim())) throw new Error(t('qwenDraftChanged'))
+        retireRecording(work)
         setState('idle')
       } catch (error) {
-        if (mountedRef.current && !controller.signal.aborted && voiceSession.isCurrentEpoch(epoch)) applyVoiceFailure(voiceSession, error)
-      } finally {
-        if (realtimeCaptureRef.current === capture) {
-          realtimeCaptureRef.current = null
-        }
-        if (realtimeReadyRef.current === ready) realtimeReadyRef.current = null
-        if (realtimeRemoteSessionIdRef.current === sessionId) realtimeRemoteSessionIdRef.current = null
-        if (transcribeAbortRef.current === controller) transcribeAbortRef.current = null
-        if (sessionId !== null) void remote.cancelRealtime(sessionId)
-        writer?.cancel()
-        if (realtimeWriterRef.current === writer) realtimeWriterRef.current = null
+        failRecording(work, error)
       }
-    })
+    })()
+    return work.stopping
   }
 
   const startRealtimeRecording = async () => {
-    const writer = new VoiceDraftWriter(actionsRef.current)
-    realtimeWriterRef.current = writer
-    const startController = new AbortController()
-    realtimeStartAbortRef.current = startController
-    const generation = ++mediaStartGenerationRef.current
-    mediaStartCancelledRef.current = false
+    if (recordingRef.current !== null) return
+    const work: RecordingWork = {
+      controller: new AbortController(),
+      writer: new VoiceDraftWriter(actionsRef.current),
+      epoch: voiceSession.beginRecording(),
+      capture: null, ready: null, sessionId: null, levelMonitor: null, timer: null, stopping: null
+    }
+    recordingRef.current = work
     setState('starting')
-    let capture: RealtimeAudioCaptureSession | undefined
-    let sessionId: string | undefined
-    let ready: Promise<string> | undefined
-    const abandoned = () => !mountedRef.current || startController.signal.aborted || realtimeStartAbortRef.current !== startController || isSupersededMediaCapture(mediaStartGenerationRef.current, generation) || mediaStartCancelledRef.current
     const openRemote = async () => {
-      const started = await remote.startRealtime(startController.signal)
+      const started = await remote.startRealtime(work.controller.signal)
       if (!started.ok) throw started.error
       const id = started.value.sessionId
-      sessionId = id
-      if (abandoned()) {
-        // The startup catch owns cancellation of this closure's remote ID.
+      if (!isCurrentRecording(work)) {
+        cancelRemoteSession(id)
         throw new DOMException('Recording startup cancelled', 'AbortError')
       }
-      realtimeRemoteSessionIdRef.current = id
+      work.sessionId = id
       return id
     }
     try {
       // Capture immediately while the local model starts.
-      capture = await RealtimeAudioCaptureSession.create()
-      if (abandoned()) {
-        capture.abort()
-        if (sessionId !== undefined) await remote.cancelRealtime(sessionId)
-        return
-      }
-      ready = openRemote()
-      realtimeReadyRef.current = ready
-      const epoch = voiceSession.captureEpoch()
-      realtimeCaptureRef.current = capture
-      if (sessionId !== undefined) realtimeRemoteSessionIdRef.current = sessionId
+      const capture = await RealtimeAudioCaptureSession.create()
+      if (!isCurrentRecording(work)) { capture.abort(); return }
+      work.capture = capture
+      work.ready = openRemote()
       capture.start(async (audioBase64) => {
-        const result = await remote.sendRealtimeAudio(sessionId!, audioBase64)
-        if (!mountedRef.current || !voiceSession.isCurrentEpoch(epoch)) return
-        if (!result.ok) throw result.error
-        const transcript = result.value.text.trim()
-        // Send the full hypothesis so native Prefix Rollback can shorten it.
-        writer.update(transcript)
-      }, ready?.then(() => undefined))
+        if (!isCurrentRecording(work)) return
+        try {
+          const result = await remote.sendRealtimeAudio(work.sessionId!, audioBase64, work.controller.signal)
+          if (!isCurrentRecording(work)) return
+          if (!result.ok) throw result.error
+          // Full hypotheses may shorten through native Prefix Rollback.
+          work.writer.update(result.value.text.trim())
+        } catch (error) {
+          if (!isCurrentRecording(work)) return
+          failRecording(work, error)
+          throw error // The capture queue records its failed delivery too.
+        }
+      }, work.ready.then(() => undefined))
       setState('recording')
-      armRecordingTimer(recordingTimerRef, effectiveRecordingSeconds(settingsRef.current), () => void stopRecording())
+      work.timer = setTimeout(() => { void stopRecording(work) }, Math.max(1, effectiveRecordingSeconds(settingsRef.current)) * 1000)
       try {
-        levelMonitorRef.current = capture.createLevelMonitor((level) => voiceSession.pushAudioLevel(level))
+        work.levelMonitor = capture.createLevelMonitor((level) => {
+          if (isCurrentRecording(work)) voiceSession.pushAudioLevel(level)
+        })
       } catch {
-        // Realtime recognition remains usable when the optional waveform analyser is unavailable.
+        // Recognition remains usable without the optional waveform analyser.
       }
-      if (ready !== undefined) await ready
-      if (realtimeStartAbortRef.current === startController) realtimeStartAbortRef.current = null
+      await work.ready
     } catch (error) {
-      capture?.abort()
-      if (sessionId !== undefined) await remote.cancelRealtime(sessionId)
-      if (realtimeCaptureRef.current === capture) realtimeCaptureRef.current = null
-      if (realtimeRemoteSessionIdRef.current === sessionId) realtimeRemoteSessionIdRef.current = null
-      const ownsStart = realtimeStartAbortRef.current === startController
-      if (ownsStart) realtimeStartAbortRef.current = null
-      if (realtimeReadyRef.current === ready) realtimeReadyRef.current = null
-      if (!mountedRef.current || startController.signal.aborted || !ownsStart || isSupersededMediaCapture(mediaStartGenerationRef.current, generation)) return
-      clearRecordingTimer(recordingTimerRef)
-      levelMonitorRef.current?.stop()
-      levelMonitorRef.current = null
-      if (mediaStartCancelledRef.current) setState('idle')
-      else applyVoiceFailure(voiceSession, error)
-      writer.cancel()
-      if (realtimeWriterRef.current === writer) realtimeWriterRef.current = null
+      failRecording(work, error)
     }
   }
 
-  const stopRecording = async () => {
-    clearRecordingTimer(recordingTimerRef)
-    if (state === 'starting' && realtimeCaptureRef.current === null && realtimeRemoteSessionIdRef.current === null) {
-      playToggleClick(settingsRef.current, 0.4)
-      mediaStartCancelledRef.current = true
-      realtimeStartAbortRef.current?.abort()
-      realtimeStartAbortRef.current = null
-      levelMonitorRef.current?.stop()
-      levelMonitorRef.current = null
-      setState('idle')
-      return
-    }
-    await stopRealtimeRecording()
-  }
-  stopRecordingRef.current = stopRecording
+  stopRecordingRef.current = () => stopRecording()
   const prewarmMicrophone = () => {
     if (settingsRef.current.voiceSoundsEnabled !== false) resumeSounds()
   }
 
   const toggle = () => {
     if (settingsRef.current.voiceSoundsEnabled !== false) resumeSounds()
-    if (active) {
-      void stopRecording()
-      return
-    }
-    if (busy) return
+    const work = recordingRef.current
+    if (work !== null) { void stopRecording(work); return }
     playToggleClick(settingsRef.current, 0.5)
-
     void startRealtimeRecording()
   }
   toggleRef.current = toggle
@@ -379,17 +330,6 @@ export function MicrophoneButton({ useInput, inputActions, remote, useEarsSettin
       </button>
     </Tooltip>
   )
-}
-
-function armRecordingTimer(timerRef: { current: ReturnType<typeof setTimeout> | null }, seconds: number, stop: () => void): void {
-  clearRecordingTimer(timerRef)
-  timerRef.current = setTimeout(stop, Math.max(1, seconds) * 1000)
-}
-
-function clearRecordingTimer(timerRef: { current: ReturnType<typeof setTimeout> | null }): void {
-  if (timerRef.current === null) return
-  clearTimeout(timerRef.current)
-  timerRef.current = null
 }
 
 function playToggleClick(settings: EarsSettings, intensity: number): void {

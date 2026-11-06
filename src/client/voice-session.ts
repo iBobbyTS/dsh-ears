@@ -46,6 +46,15 @@ export class VoiceInputSession {
   private epoch = 0
   private errorTimer: ReturnType<typeof setTimeout> | undefined
 
+  beginRecording(): number {
+    this.epoch += 1
+    return this.epoch
+  }
+
+  invalidateRecording(epoch: number): void {
+    if (this.epoch === epoch) this.epoch += 1
+  }
+
   captureEpoch(): number {
     return this.epoch
   }

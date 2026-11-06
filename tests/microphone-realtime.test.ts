@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { InputState } from '@deepseek-ai/dsh-client-ui-conversation/client'
+import type { InputState, TokenSpan } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import { DEFAULT_EARS_SETTINGS } from '../src/config.js'
 import { MicrophoneButton } from '../src/client/MicrophoneButton.js'
 import { VoiceInputSession } from '../src/client/voice-session.js'
@@ -108,7 +108,7 @@ function windowComposition(type: 'compositionstart' | 'compositionend') {
 }
 
 type Startup = { ok: true; value: { sessionId: string } }
-function setup() {
+function setup(initialDraft = '') {
   const startup = deferred<Startup>()
   const capture = fakeCapture()
   captureMock.create.mockResolvedValue(capture)
@@ -121,14 +121,19 @@ function setup() {
   const remote = {
     startRealtime: vi.fn((_signal: AbortSignal) => startup.promise),
     cancelRealtime: vi.fn(async () => ({ ok: true, value: { cancelled: true } })),
-    finishRealtime: vi.fn(async () => ({ ok: true, value: { status: 'ok', text: 'speech' } })),
-    sendRealtimeAudio: vi.fn(async () => ({ ok: true, value: { text: '', final: false } })),
+    finishRealtime: vi.fn(async (_sessionId: string, _signal?: AbortSignal) => ({ ok: true, value: { status: 'ok', text: 'speech' } })),
+    sendRealtimeAudio: vi.fn(async (_sessionId: string, _audio: string, _signal?: AbortSignal) => ({ ok: true, value: { text: '', final: false } })),
   }
-  let draft = ''
+  let draft = initialDraft
   let revision = 0
   const inputActions = {
     captureInsertion: () => ({ start: draft.length, end: draft.length, draftRev: revision }),
-    insertText: vi.fn((text: string) => { draft = text; revision++; return true }),
+    insertText: vi.fn((text: string, span: TokenSpan) => {
+      if (span.draftRev !== revision) return false
+      draft = draft.slice(0, span.start) + text + draft.slice(span.end)
+      revision++
+      return true
+    }),
     setDraft: vi.fn((text: string) => { draft = text; revision++ })
   }
   const composer = composerSurface(() => draft)
@@ -482,6 +487,193 @@ describe('microphone realtime startup lifecycle', () => {
     await vi.advanceTimersByTimeAsync(2_000)
     expect(app.capture.stop).not.toHaveBeenCalled()
     expect(app.remote.finishRealtime).not.toHaveBeenCalled()
+    app.unmount()
+  })
+
+})
+
+
+describe('Qwen recording text ownership', () => {
+  async function streaming(app: ReturnType<typeof setup>, text = 'accepted partial') {
+    app.render().props.onClick()
+    app.startup.resolve({ ok: true, value: { sessionId: 'first' } })
+    await settle()
+    app.remote.sendRealtimeAudio.mockResolvedValue({ ok: true, value: { text, final: false } })
+    const send = app.capture.start.mock.calls[0]![0]
+    await send('first audio')
+    return send
+  }
+
+  it.each(['finish rejection', 'finish error envelope', 'capture stop failure'] as const)('preserves accepted partial text after %s', async (failure) => {
+    const app = setup('unrelated: ')
+    await streaming(app)
+    if (failure === 'finish rejection') app.remote.finishRealtime.mockRejectedValueOnce(new Error('finish failed'))
+    else if (failure === 'finish error envelope') app.remote.finishRealtime.mockResolvedValueOnce({ ok: true, value: { status: 'error', code: 'asr.unexpected', message: 'finish failed' } } as never)
+    else app.capture.stop.mockRejectedValueOnce(new Error('capture delivery failed'))
+    app.render().props.onClick()
+    await settle()
+    expect(app.draft()).toBe('unrelated: accepted partial')
+    expect(app.voiceSession.getSnapshot().state).toBe('upstream-error')
+    expect(app.remote.cancelRealtime).toHaveBeenCalledWith('first')
+    expect(app.inputActions.setDraft).not.toHaveBeenCalled()
+    app.unmount()
+    expect(app.draft()).toBe('unrelated: accepted partial')
+  })
+
+  it('isolates a late old packet from a new recording after a capture failure', async () => {
+    const app = setup()
+    const send = await streaming(app, 'old partial')
+    const oldReply = deferred<{ ok: true; value: { text: string; final: boolean } }>()
+    app.remote.sendRealtimeAudio.mockReturnValueOnce(oldReply.promise)
+    const pending = send('old pending')
+    const oldSignal = app.remote.sendRealtimeAudio.mock.calls.at(-1)?.[2]
+    app.capture.stop.mockRejectedValueOnce(new Error('delivery timed out'))
+    app.render().props.onClick()
+    await settle()
+    expect(oldSignal).toBeInstanceOf(AbortSignal)
+    expect(oldSignal?.aborted).toBe(true)
+    expect(app.draft()).toBe('old partial')
+    const newer = fakeCapture()
+    captureMock.create.mockResolvedValueOnce(newer)
+    app.remote.startRealtime.mockResolvedValueOnce({ ok: true, value: { sessionId: 'second' } })
+    app.render().props.onClick()
+    await settle()
+    app.remote.sendRealtimeAudio.mockResolvedValueOnce({ ok: true, value: { text: 'new words', final: false } })
+    await newer.start.mock.calls[0]![0]('new packet')
+    oldReply.resolve({ ok: true, value: { text: 'stale overwrite', final: false } })
+    await pending
+    expect(app.draft()).toBe('old partialnew words')
+    expect(app.voiceSession.getSnapshot().state).toBe('recording')
+    expect(newer.abort).not.toHaveBeenCalled()
+    app.render().props.onClick()
+    await settle()
+    expect(app.remote.finishRealtime).toHaveBeenCalledWith('second', expect.any(AbortSignal))
+    expect(app.draft()).toBe('old partialspeech')
+    app.unmount()
+  })
+
+  it('preserves accepted words on unmount and ignores a pending packet', async () => {
+    const app = setup('before ')
+    const send = await streaming(app)
+    const reply = deferred<{ ok: true; value: { text: string; final: boolean } }>()
+    app.remote.sendRealtimeAudio.mockReturnValueOnce(reply.promise)
+    const pending = send('pending')
+    app.unmount()
+    expect(app.draft()).toBe('before accepted partial')
+    reply.resolve({ ok: true, value: { text: 'late', final: true } })
+    await pending
+    expect(app.draft()).toBe('before accepted partial')
+    expect(app.capture.abort).toHaveBeenCalledOnce()
+    expect(app.remote.cancelRealtime).toHaveBeenCalledWith('first')
+  })
+
+  it('discards only its unedited span and ignores a pending final result', async () => {
+    const app = setup('before ')
+    await streaming(app)
+    const finish = deferred<{ ok: true; value: { status: 'ok'; text: string } }>()
+    app.remote.finishRealtime.mockReturnValueOnce(finish.promise)
+    app.render().props.onClick()
+    await settle()
+    app.voiceSession.requestCancel()
+    expect(app.draft()).toBe('before ')
+    finish.resolve({ ok: true, value: { status: 'ok', text: 'late final' } })
+    await settle()
+    expect(app.draft()).toBe('before ')
+    expect(app.voiceSession.getSnapshot().state).toBe('idle')
+    app.unmount()
+  })
+
+  it('keeps a manual edit through discard, a late final, and unmount', async () => {
+    const app = setup('before ')
+    await streaming(app)
+    app.inputActions.setDraft('before accepted partial manual edit')
+    const finish = deferred<{ ok: true; value: { status: 'ok'; text: string } }>()
+    app.remote.finishRealtime.mockReturnValueOnce(finish.promise)
+    app.render().props.onClick()
+    await settle()
+    app.voiceSession.requestCancel()
+    finish.resolve({ ok: true, value: { status: 'ok', text: 'late final' } })
+    await settle()
+    app.unmount()
+    expect(app.draft()).toBe('before accepted partial manual edit')
+  })
+
+  it('finalizes just the owned span and retains it after unmount', async () => {
+    const app = setup('before ')
+    await streaming(app)
+    app.render().props.onClick()
+    await settle()
+    expect(app.draft()).toBe('before speech')
+    expect(app.voiceSession.getSnapshot().state).toBe('idle')
+    expect(app.inputActions.setDraft).not.toHaveBeenCalled()
+    app.unmount()
+    expect(app.draft()).toBe('before speech')
+  })
+  it.each(['late success', 'late rejection'] as const)('keeps the new recording and its timer after submit followed by an old final %s', async (outcome) => {
+    const app = setup('before ')
+    await streaming(app)
+    const oldFinish = deferred<{ ok: true; value: { status: 'ok'; text: string } }>()
+    app.remote.finishRealtime.mockReturnValueOnce(oldFinish.promise)
+    app.render().props.onClick()
+    await settle()
+    expect(app.voiceSession.getSnapshot().state).toBe('transcribing')
+    app.composer.gesture('click')
+    app.inputActions.setDraft('') // The Host consumes its submitted document.
+    await settle()
+    const oldSignal = app.remote.finishRealtime.mock.calls[0]?.[1]
+    expect(oldSignal?.aborted).toBe(true)
+    app.inputActions.setDraft('next: ')
+    const newer = fakeCapture()
+    captureMock.create.mockResolvedValueOnce(newer)
+    app.remote.startRealtime.mockResolvedValueOnce({ ok: true, value: { sessionId: 'newer' } })
+    app.render().props.onClick()
+    await settle()
+    app.remote.sendRealtimeAudio.mockResolvedValueOnce({ ok: true, value: { text: 'new words', final: false } })
+    await newer.start.mock.calls[0]![0]('new packet')
+    if (outcome === 'late success') oldFinish.resolve({ ok: true, value: { status: 'ok', text: 'old final' } })
+    else oldFinish.reject(new Error('old finish failed'))
+    await settle()
+    expect(app.draft()).toBe('next: new words')
+    expect(app.voiceSession.getSnapshot().state).toBe('recording')
+    expect(newer.abort).not.toHaveBeenCalled()
+    expect(app.remote.cancelRealtime).not.toHaveBeenCalledWith('newer')
+    await vi.advanceTimersByTimeAsync(2_000)
+    expect(newer.stop).toHaveBeenCalledOnce()
+    expect(app.remote.finishRealtime).toHaveBeenCalledWith('newer', expect.any(AbortSignal))
+    expect(app.draft()).toBe('next: speech')
+    app.unmount()
+  })
+
+  it('preserves a manual edit before late streaming and final results', async () => {
+    const app = setup('before ')
+    const send = await streaming(app)
+    const reply = deferred<{ ok: true; value: { text: string; final: boolean } }>()
+    app.remote.sendRealtimeAudio.mockReturnValueOnce(reply.promise)
+    const pending = send('pending')
+    app.inputActions.setDraft('before accepted partial, typed')
+    reply.resolve({ ok: true, value: { text: 'revised old words', final: false } })
+    await pending
+    app.render().props.onClick()
+    await settle()
+    expect(app.draft()).toBe('before accepted partial, typed')
+    expect(app.voiceSession.getSnapshot().state).toBe('upstream-error')
+    app.unmount()
+    expect(app.draft()).toBe('before accepted partial, typed')
+  })
+
+  it('freezes the span and aborts audio work immediately on a live send error', async () => {
+    const app = setup('before ')
+    const send = await streaming(app)
+    app.remote.sendRealtimeAudio.mockRejectedValueOnce(new Error('feed failed'))
+    await expect(send('bad packet')).rejects.toThrow('feed failed')
+    expect(app.draft()).toBe('before accepted partial')
+    expect(app.voiceSession.getSnapshot().state).toBe('upstream-error')
+    expect(app.capture.abort).toHaveBeenCalledOnce()
+    expect(app.remote.sendRealtimeAudio.mock.calls.at(-1)?.[2]?.aborted).toBe(true)
+    await send('packet after failure')
+    expect(app.remote.sendRealtimeAudio).toHaveBeenCalledTimes(2)
+    await vi.advanceTimersByTimeAsync(2_000)
+    expect(app.capture.stop).not.toHaveBeenCalled()
     app.unmount()
   })
 

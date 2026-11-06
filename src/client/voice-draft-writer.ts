@@ -57,8 +57,13 @@ export class VoiceDraftWriter {
 
   finalize(text: string): boolean {
     const applied = !this.applied && text === '' ? true : this.update(text)
-    this.invalidated = true // no late audio frame can write after final
+    this.freeze() // no late audio frame can write after final
     return applied
+  }
+
+  /** End ownership without changing any accepted text or subsequent user edits. */
+  freeze(): void {
+    this.invalidated = true
   }
 
   cancel(): void {
