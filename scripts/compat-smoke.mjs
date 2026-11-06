@@ -27,19 +27,19 @@ export const SMOKE_SCENARIOS = Object.freeze(['fresh', 'canonical'])
 function canonicalSettingsDocument() {
   return {
     schemaVersion: 4,
-    general: { displayName: 'voice', shortcut: { enabled: false, value: 'ctrl+alt+space' }, soundsEnabled: false },
+    general: { shortcut: { enabled: false, value: 'ctrl+alt+space' }, soundsEnabled: false },
     recognition: { localQwen: { model: '0.6b-8bit', idleTtlMinutes: 17, prompt: 'Synthetic Qwen context' }, maxRecordingSeconds: 98 }
   }
 }
 function assertQwenSettingsView(value) {
-  const expected = ['localQwenModel', 'localQwenIdleTtlMinutes', 'localQwenPrompt', 'maxRecordingSeconds', 'voiceShortcutEnabled', 'voiceShortcut', 'voiceSoundsEnabled', 'settingsDisplayName']
+  const expected = ['localQwenModel', 'localQwenIdleTtlMinutes', 'localQwenPrompt', 'maxRecordingSeconds', 'voiceShortcutEnabled', 'voiceShortcut', 'voiceSoundsEnabled']
   if (value?.available !== true || JSON.stringify(Object.keys(value.settings ?? {}).sort()) !== JSON.stringify(expected.sort())) throw new Error('getSettings must expose exactly Qwen and general settings')
   if (Object.keys(value).some((key) => /cloud|whisper|polish|backend/iu.test(key))) throw new Error('getSettings must omit removed feature metadata')
 }
 function assertRetainedSettings(value, scenario) {
   assertQwenSettingsView(value)
   if (scenario !== 'canonical') return
-  const expected = { localQwenModel: '0.6b-8bit', localQwenIdleTtlMinutes: 17, localQwenPrompt: 'Synthetic Qwen context', settingsDisplayName: 'voice', voiceShortcutEnabled: false, voiceShortcut: 'ctrl+alt+space', voiceSoundsEnabled: false }
+  const expected = { localQwenModel: '0.6b-8bit', localQwenIdleTtlMinutes: 17, localQwenPrompt: 'Synthetic Qwen context', voiceShortcutEnabled: false, voiceShortcut: 'ctrl+alt+space', voiceSoundsEnabled: false }
   for (const [key, setting] of Object.entries(expected)) if (value.settings[key] !== setting) throw new Error(`retained setting changed: ${key}`)
 }
 

@@ -4,7 +4,7 @@ import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots'
 import { IconChevronDownOutlineRegular, Input, Menu, Tooltip, type MenuEntry } from '@deepseek-ai/dsh-client-ui-primitives'
 import Github from '@thesvg/react/github'
-import { QWEN3_MODELS, DEFAULT_EARS_SETTINGS, settingsPageLabel, type EarsSettings } from '../config.js'
+import { QWEN3_MODELS, DEFAULT_EARS_SETTINGS, type EarsSettings } from '../config.js'
 import { EMPTY_SHORTCUT_RECORDER, formatModifierChord, formatShortcut, isReservedShortcut, reduceShortcutRecorder, shortcutRejectReason } from '../shortcut.js'
 import type { ShortcutModifier, ShortcutRecorderInput } from '../shortcut.js'
 import type { AboutInfo, Qwen3ModelState } from '../remote-contract.js'
@@ -49,7 +49,7 @@ export function EarsSettingsSection(props: EarsSettingsSectionProps): ReactNode 
   ]
   return (
     <section className={styles.section}>
-      <h2 className={styles.title}>{settingsPageLabel(state.settingsDisplayName.text, { plugin: t('displayNamePlugin'), voice: t('displayNameVoice') })}</h2>
+      <h2 className={styles.title}>{t('title')}</h2>
       <p className={styles.intro}>{t('description')}</p>
       {state.recoveredSettingsFields?.length > 0 ? <p className={styles.notice} role="alert">{t('recoveredSettings')}</p> : null}
       {state.loadFailed ? <p className={styles.notice} role="alert">{t('loadFailed')}</p> : !state.loaded ? null : !state.writable ? <p className={styles.notice}>{t('readOnly')}</p> : state.failed ? <p className={`${styles.notice} ${styles.noticeError}`} role="alert">{t('saveFailed')}</p> : null}
@@ -82,7 +82,6 @@ export function EarsSettingsSection(props: EarsSettingsSectionProps): ReactNode 
       </div>
       {activeTab === 'general' ? (
         <div id={`${tabsId}-panel-general`} role="tabpanel" aria-labelledby={`${tabsId}-tab-general`} className={styles.panel}>
-          <SelectRow label={t('displayName')} hint={t('displayNameHint')} value={state.settingsDisplayName.text} options={[['dsh-ears', t('displayNamePlugin')], ['voice', t('displayNameVoice')]]} disabled={!state.writable} invalid={state.settingsDisplayName.invalid} onChange={(value) => props.edit('settingsDisplayName', value)} />
           <SelectRow label={t('shortcutEnabled')} hint={t('shortcutEnabledHint')} value={state.voiceShortcutEnabled.text} options={[['on', t('enabledOn')], ['off', t('enabledOff')]]} disabled={!state.writable} invalid={state.voiceShortcutEnabled.invalid} onChange={(value) => props.edit('voiceShortcutEnabled', value)} />
           {state.voiceShortcutEnabled.text === 'on' ? (
             <ShortcutRecorderRow label={t('shortcut')} hint={t('shortcutHint')} value={state.voiceShortcut.text} disabled={!state.writable} invalid={state.voiceShortcut.invalid} onChange={(value) => props.edit('voiceShortcut', value)} onReset={() => props.edit('voiceShortcut', DEFAULT_EARS_SETTINGS.voiceShortcut)} t={t} />

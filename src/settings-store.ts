@@ -5,7 +5,6 @@ import type { EarsSettingsPatch } from './remote-contract.js'
 export type StoredEarsSettings = { schemaVersion: typeof EARS_SETTINGS_SCHEMA_VERSION; general: GeneralSettings; recognition: RecognitionSettings }
 const FLAT_SETTING_KEYS = Object.keys(DEFAULT_EARS_SETTINGS) as (keyof EarsSettings)[]
 const CURRENT_STORED_PATHS = new Map<keyof EarsSettings, readonly string[]>([
-  ['settingsDisplayName', ['general', 'displayName']],
   ['voiceShortcutEnabled', ['general', 'shortcut', 'enabled']],
   ['voiceShortcut', ['general', 'shortcut', 'value']],
   ['voiceSoundsEnabled', ['general', 'soundsEnabled']],
@@ -30,7 +29,7 @@ export function flattenStoredSettings(raw: unknown): EarsSettings {
 export function unflattenEarsSettings(settings: EarsSettings): StoredEarsSettings {
   return {
     schemaVersion: EARS_SETTINGS_SCHEMA_VERSION,
-    general: { displayName: settings.settingsDisplayName, shortcut: { enabled: settings.voiceShortcutEnabled, value: settings.voiceShortcut }, soundsEnabled: settings.voiceSoundsEnabled },
+    general: { shortcut: { enabled: settings.voiceShortcutEnabled, value: settings.voiceShortcut }, soundsEnabled: settings.voiceSoundsEnabled },
     recognition: { localQwen: { model: settings.localQwenModel, idleTtlMinutes: settings.localQwenIdleTtlMinutes, prompt: settings.localQwenPrompt }, maxRecordingSeconds: settings.maxRecordingSeconds }
   }
 }

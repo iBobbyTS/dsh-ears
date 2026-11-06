@@ -12,7 +12,7 @@ The web Client contributes the Composer microphone, a conversation-scoped recogn
 
 ## Settings
 
-The Config schema uses loose volatile leaves so field saves apply live without recomposing the service. Persistence stays at schema version 4: `general.displayName`, `general.shortcut.enabled/value`, `general.soundsEnabled`, `recognition.localQwen.model/idleTtlMinutes/prompt`, and `recognition.maxRecordingSeconds`. The Client wire projects only their eight flat Qwen/general fields. Existing retained values remain readable; unrelated obsolete stored fields do not enter the wire or new patches. Reads do not rewrite a profile.
+The Config schema uses loose volatile leaves so field saves apply live without recomposing the service. Persistence stays at schema version 4: `general.shortcut.enabled/value`, `general.soundsEnabled`, `recognition.localQwen.model/idleTtlMinutes/prompt`, and `recognition.maxRecordingSeconds`. The Client wire projects only their seven flat Qwen/general fields. Existing retained values remain readable; unrelated obsolete stored fields do not enter the wire or new patches. Reads do not rewrite a profile.
 
 `SettingsDraftController` stages fields independently. The coordinator debounces valid edits for 400 ms, skips invalid fields, preserves newer edits during saves, and flushes when the section unmounts. A failed save keeps drafts. Model management provides install/download, cancellation, weight deletion, preload, and unload. Idle TTL unloads memory while retaining weights.
 

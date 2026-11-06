@@ -2,7 +2,7 @@
 
 [中文](usage.zh.md) · [Installation](../README.en.md)
 
-Use local Qwen3-ASR MLX on Apple Silicon macOS with discoverable Python 3.10+. In settings → dsh-ears → Recognition, choose `1.7b-8bit` (default) or `0.6b-8bit`, then Install / download. Initial setup needs PyPI and Hugging Face access. The Host manages an isolated environment and allowlisted model weights; inference runs locally with no separate server or listening port.
+Use local Qwen3-ASR MLX on Apple Silicon macOS with discoverable Python 3.10+. In settings → Speech recognition → Recognition, choose `1.7b-8bit` (default) or `0.6b-8bit`, then Install / download. Initial setup needs PyPI and Hugging Face access. The Host manages an isolated environment and allowlisted model weights; inference runs locally with no separate server or listening port.
 
 Click the Composer microphone or press `Ctrl+Shift+Space` to start/stop. The recognition bar shows progress and a waveform. Stop finishes recognition; discard cancels in-flight transcription. Escape ends voice work and leaves the accepted draft for review. Edit the draft and send manually. Reference chips and manual edits belong to the user.
 
@@ -10,7 +10,7 @@ Click the Composer microphone or press `Ctrl+Shift+Space` to start/stop. The rec
 
 | Tab | Options |
 | --- | --- |
-| General | Display name, shortcut toggle/chord, sound cues, recording limit (1–600 seconds; default 120) |
+| General | shortcut toggle/chord, sound cues, recording limit (1–600 seconds; default 120) |
 | Recognition | Qwen model, idle TTL (1–1440 minutes; default 60), context prompt (up to 1024 characters), model/runtime management |
 | About | Version, license, DSH compatibility, fork installation/update instructions |
 

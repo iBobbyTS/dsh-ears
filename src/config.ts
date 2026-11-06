@@ -1,9 +1,6 @@
 import { isValidStoredShortcut } from './shortcut.js'
 import { QWEN3_MODELS, DEFAULT_RECOGNITION_SETTINGS, MAX_QWEN3_PROMPT_LENGTH, validQwen3TTL, isValidRecordingLimit } from './settings/recognition.js'
-import { SETTINGS_DISPLAY_NAME_IDS, type SettingsDisplayNameId } from './settings/general.js'
 export * from './settings/recognition.js'
-export { SETTINGS_DISPLAY_NAME_IDS, settingsPageLabel } from './settings/general.js'
-export type { SettingsDisplayNameId } from './settings/general.js'
 export const SETTINGS_NAMESPACE = 'dsh-ears'
 export const EARS_SETTINGS_SCHEMA_VERSION = 4 as const
 export interface EarsSettings {
@@ -14,7 +11,6 @@ export interface EarsSettings {
   voiceShortcutEnabled: boolean
   voiceShortcut: string
   voiceSoundsEnabled: boolean
-  settingsDisplayName: SettingsDisplayNameId | string
 }
 export const DEFAULT_EARS_SETTINGS: EarsSettings = Object.freeze({
   localQwenModel: DEFAULT_RECOGNITION_SETTINGS.localQwen.model,
@@ -23,8 +19,7 @@ export const DEFAULT_EARS_SETTINGS: EarsSettings = Object.freeze({
   maxRecordingSeconds: DEFAULT_RECOGNITION_SETTINGS.maxRecordingSeconds,
   voiceShortcutEnabled: true,
   voiceShortcut: 'ctrl+shift+space',
-  voiceSoundsEnabled: true,
-  settingsDisplayName: 'dsh-ears'
+  voiceSoundsEnabled: true
 })
 export function effectiveRecordingSeconds(settings: Pick<EarsSettings, 'maxRecordingSeconds'>): number { return settings.maxRecordingSeconds }
 function validField(field: keyof EarsSettings, value: unknown): boolean {
@@ -34,7 +29,6 @@ function validField(field: keyof EarsSettings, value: unknown): boolean {
     case 'localQwenPrompt': return typeof value === 'string' && value.trim().length <= MAX_QWEN3_PROMPT_LENGTH
     case 'maxRecordingSeconds': return typeof value === 'number' && isValidRecordingLimit(value)
     case 'voiceShortcut': return typeof value === 'string' && isValidStoredShortcut(value)
-    case 'settingsDisplayName': return typeof value === 'string' && (SETTINGS_DISPLAY_NAME_IDS as readonly string[]).includes(value)
     default: return typeof value === 'boolean'
   }
 }

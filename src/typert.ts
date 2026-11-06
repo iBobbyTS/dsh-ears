@@ -29,7 +29,7 @@ export const TYPERT = {
       tags: [],
       members: EARS_REMOTE_DESCRIPTORS.map(({ method }) => ({ kind: 'method' as const, name: method, signature: signatures[method] })),
       types: [
-        { name: 'EarsSettings', declaration: 'export interface EarsSettings { localQwenModel: string; localQwenIdleTtlMinutes: number; localQwenPrompt: string; maxRecordingSeconds: number; voiceShortcutEnabled: boolean; voiceShortcut: string; voiceSoundsEnabled: boolean; settingsDisplayName: string }' },
+        { name: 'EarsSettings', declaration: 'export interface EarsSettings { localQwenModel: string; localQwenIdleTtlMinutes: number; localQwenPrompt: string; maxRecordingSeconds: number; voiceShortcutEnabled: boolean; voiceShortcut: string; voiceSoundsEnabled: boolean }' },
         { name: 'EarsSettingsPatch', declaration: 'export type EarsSettingsPatch = Partial<EarsSettings>' },
         { name: 'EarsSettingsView', declaration: 'export interface EarsSettingsView { available: boolean; writable: boolean; settings: EarsSettings; recoveredSettingsFields?: string[]; overridden: string[] }' },
         { name: 'AboutInfo', declaration: 'export interface AboutInfo { repository: string; repositorySlug: string; version: string; license: string; dshCompatibility: string }' },

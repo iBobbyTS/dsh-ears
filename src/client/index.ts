@@ -3,7 +3,6 @@ import type { ConversationSlotProps } from '@deepseek-ai/dsh-client-ui-conversat
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
-import { settingsPageLabel } from '../config.js'
 import { TYPERT_REMOTE } from '../remote.js'
 import { MicrophoneButton } from './MicrophoneButton.js'
 import { VoiceRecognitionBar } from './VoiceRecognitionBar.js'
@@ -81,10 +80,7 @@ export async function apply(ctx: Context): Promise<() => Promise<void>> {
     )
 
     remoteCtx.slots.inject('settings.section', () => {
-      const sectionLabel = (): string => settingsPageLabel(settingsController.getCardStore().getSnapshot().settingsDisplayName.text, {
-        plugin: earsT('displayNamePlugin'),
-        voice: earsT('displayNameVoice')
-      })
+      const sectionLabel = (): string => earsT('title')
       const registerSection = () => remoteCtx.slots.register(
         {
           name: 'settings.section',
@@ -115,11 +111,9 @@ export async function apply(ctx: Context): Promise<() => Promise<void>> {
           disposeSection = registerSection()
         })
       }
-      const unsubscribeCard = settingsController.getCardStore().subscribe(syncSectionLabel)
       const unsubscribeLocale = remoteCtx.locale.subscribe(syncSectionLabel)
       return () => {
         disposed = true
-        unsubscribeCard()
         unsubscribeLocale()
         disposeSection()
       }

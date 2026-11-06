@@ -6,13 +6,12 @@ import { DEFAULT_RECOGNITION_SETTINGS } from './settings/recognition.js'
 export const EarsSettingsSchema = s.object({
   schemaVersion: s.number().default(EARS_SETTINGS_SCHEMA_VERSION).description('Settings schema version').loose().volatile(),
   general: s.object({
-    displayName: s.string().default(DEFAULT_GENERAL_SETTINGS.displayName).description('Settings page display name: dsh-ears or voice').loose().volatile(),
     shortcut: s.object({
       enabled: s.boolean().default(DEFAULT_GENERAL_SETTINGS.shortcut.enabled).description('Enable the in-page voice shortcut').loose().volatile(),
       value: s.string().default(DEFAULT_GENERAL_SETTINGS.shortcut.value).description('In-page voice shortcut').loose().volatile()
     }).description('Voice shortcut').collapse(),
     soundsEnabled: s.boolean().default(DEFAULT_GENERAL_SETTINGS.soundsEnabled).description('Play a synthesized click for voice input').loose().volatile()
-  }).description('General dsh-ears presentation and input settings').collapse(),
+  }).description('General dsh-ears input settings').collapse(),
   recognition: s.object({
     localQwen: s.object({
       model: s.string().default(DEFAULT_RECOGNITION_SETTINGS.localQwen.model).description('Qwen3-ASR quantized model').loose().volatile(),

@@ -1,9 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { DEFAULT_EARS_SETTINGS, MAX_QWEN3_PROMPT_LENGTH, repairInvalidEarsSettings, validateEarsSettings, settingsPageLabel } from '../src/config.js'
+import { DEFAULT_EARS_SETTINGS, MAX_QWEN3_PROMPT_LENGTH, repairInvalidEarsSettings, validateEarsSettings } from '../src/config.js'
 describe('Qwen/general settings validation', () => {
   it('accepts both model sizes and retained nondefault options', () => {
     expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS, localQwenModel: '0.6b-8bit', localQwenIdleTtlMinutes: 17, localQwenPrompt: 'Context', voiceSoundsEnabled: false })).not.toThrow()
-    expect(settingsPageLabel('voice', { plugin: 'ears', voice: 'Voice' })).toBe('Voice')
   })
   it.each([
     { localQwenModel: 'unknown' }, { localQwenIdleTtlMinutes: 0 }, { localQwenIdleTtlMinutes: 1441 },

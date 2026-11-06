@@ -1,15 +1,15 @@
 import { z } from 'zod'
-import { QWEN3_MODELS, MAX_QWEN3_PROMPT_LENGTH, SETTINGS_DISPLAY_NAME_IDS } from './config.js'
+import { QWEN3_MODELS, MAX_QWEN3_PROMPT_LENGTH } from './config.js'
 import type { EarsSettings } from './config.js'
 import type { EarsErrorCode, EarsErrorParams } from './errors.js'
 export const textSchema = z.string()
 export const earsSettingsSchema = z.object({
   localQwenModel: z.string(), localQwenIdleTtlMinutes: z.number(), localQwenPrompt: z.string(),
-  maxRecordingSeconds: z.number(), voiceShortcutEnabled: z.boolean(), voiceShortcut: z.string(), voiceSoundsEnabled: z.boolean(), settingsDisplayName: z.string()
+  maxRecordingSeconds: z.number(), voiceShortcutEnabled: z.boolean(), voiceShortcut: z.string(), voiceSoundsEnabled: z.boolean()
 })
 export const earsSettingsPatchSchema = z.object({
   localQwenModel: z.enum(QWEN3_MODELS).optional(), localQwenIdleTtlMinutes: z.number().int().min(1).max(1440).optional(), localQwenPrompt: z.string().max(MAX_QWEN3_PROMPT_LENGTH).optional(),
-  maxRecordingSeconds: z.number().optional(), voiceShortcutEnabled: z.boolean().optional(), voiceShortcut: z.string().optional(), voiceSoundsEnabled: z.boolean().optional(), settingsDisplayName: z.enum(SETTINGS_DISPLAY_NAME_IDS).optional()
+  maxRecordingSeconds: z.number().optional(), voiceShortcutEnabled: z.boolean().optional(), voiceShortcut: z.string().optional(), voiceSoundsEnabled: z.boolean().optional()
 }).strict()
 export const earsSettingsViewSchema = z.object({ available: z.boolean(), writable: z.boolean(), settings: earsSettingsSchema, recoveredSettingsFields: z.array(z.string()).optional(), overridden: z.array(z.string()) })
 const errorParamsSchema = z.record(z.string(), z.union([z.string(), z.number()]))

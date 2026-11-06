@@ -30,7 +30,7 @@ const field = (text: string) => ({ text, overridden: false, invalid: false })
 const cardState: EarsCardState = {
   available: true, writable: true, loaded: true, loadFailed: false, recoveredSettingsFields: [], saving: false, failed: false, dirty: true, invalid: false,
   localQwenModel: field('0.6b-8bit'), localQwenIdleTtlMinutes: field('17'), localQwenPrompt: field('Context'),
-  maxRecordingSeconds: field('120'), voiceShortcutEnabled: field('on'), voiceShortcut: field('ctrl+shift+space'), voiceSoundsEnabled: field('off'), settingsDisplayName: field('dsh-ears')
+  maxRecordingSeconds: field('120'), voiceShortcutEnabled: field('on'), voiceShortcut: field('ctrl+shift+space'), voiceSoundsEnabled: field('off')
 }
 
 describe('EarsSettingsSection lifecycle', () => {

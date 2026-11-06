@@ -58,7 +58,7 @@ describe('exported plugin Config', () => {
 
   it('declares only Qwen and general settings', () => {
     expect(leaves.map(({ path }) => path.join('.')).sort()).toEqual([
-      'schemaVersion', 'general.displayName', 'general.shortcut.enabled', 'general.shortcut.value', 'general.soundsEnabled',
+      'schemaVersion', 'general.shortcut.enabled', 'general.shortcut.value', 'general.soundsEnabled',
       'recognition.localQwen.model', 'recognition.localQwen.idleTtlMinutes', 'recognition.localQwen.prompt', 'recognition.maxRecordingSeconds'
     ].sort())
   })
@@ -69,7 +69,7 @@ describe('exported plugin Config', () => {
   })
 
   it('falls back to the field default instead of failing resolution on a corrupt stored value', () => {
-    expect(resolve({ general: { displayName: 42 } }).general).toMatchObject({ displayName: DEFAULT_EARS_SETTINGS.settingsDisplayName })
+    expect(resolve({ general: { soundsEnabled: 42 } }).general).toMatchObject({ soundsEnabled: DEFAULT_EARS_SETTINGS.voiceSoundsEnabled })
   })
 
   it('preserves fields it does not declare', () => {
