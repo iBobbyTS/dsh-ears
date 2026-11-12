@@ -4,7 +4,7 @@
 
 ## Tooling and editing
 
-Use pnpm 11.19.0 and the exact development-tool versions in package.json/lockfile. The selected tsdown tool requires Node 22.19+, 24.11+ or 26+; this build-tool requirement is separate from the plugin runtime range. Development dependencies target DSH 0.2.2-rc.1 with Cordis 4.1.0/Schemastery 3.19.0.
+Use pnpm 11.19.0 and the exact development-tool versions in package.json/lockfile. The selected tsdown tool requires Node 22.19+, 24.11+ or 26+; this build-tool requirement is separate from the plugin runtime range. Development dependencies target DSH 0.2.2-rc.2 with Cordis 4.1.0/Schemastery 3.19.0.
 
 ```sh
 pnpm install --frozen-lockfile
@@ -42,3 +42,5 @@ After installing development dependencies and building, use the absolute checkou
 ## Release status
 
 Package version remains 0.4.3; no release is implied. There is no automatic npm publishing workflow or inherited upstream publication authorization. Maintainer-authorized publication can use the existing offline release:check metadata command and the same verified tarball. Current installation and updates use this fork's Git source or a verified tarball.
+
+The rc.2 upgrade has source review, target public-type checks and minimal contract tests. An isolated rc.2 Web instance additionally downloaded and loaded the 0.6b-8bit model, then ran local MLX inference on a synthetic WAV through the browser capture path into an editable draft, preserving its existing prefix without auto-send. No physical microphone, 1.7b model or Desktop acceptance was exercised. The full `compat:smoke` script certification remains rc.1 until that script is actually rerun; this Web acceptance does not extend its certified-version list.

@@ -8,7 +8,9 @@ This is a fork of [WizisCool/dsh-ears](https://github.com/WizisCool/dsh-ears). I
 
 ## Compatibility
 
-Verified: DSH 0.2.2-rc.1 (source review and automated checks); Desktop testing has not been completed. Qwen inference and microphone acceptance remain separate from package/loader checks.
+Verified: DSH 0.2.2-rc.2 (source review and minimal automated compatibility checks); Desktop testing has not been completed.
+
+In isolated DSH 0.2.2-rc.2 Web testing, the 0.6b-8bit model was downloaded and loaded, and local MLX transcribed a synthetic WAV through the browser capture path into an editable draft while preserving its existing prefix and requiring manual send. No physical microphone was used; the 1.7b model and Desktop remain untested.
 
 Requires Apple Silicon macOS, discoverable Python 3.10+, and DSH's supported Node runtime (`^22.19.0 || >=24.0.0`). DSH manages installation dependencies; the plugin ships prebuilt JavaScript and does not compile during installation. Model setup is separate and initially needs PyPI/Hugging Face access.
 
